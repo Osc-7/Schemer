@@ -1,2 +1,4 @@
 test.scm
 output
+.vscode/
+.gitignore
