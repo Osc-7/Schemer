@@ -3,3 +3,4 @@ output
 .vscode/
 .gitignore
 .devcontainer/
+.DS_Store
