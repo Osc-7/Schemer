@@ -2,3 +2,5 @@
 (load "src/backend/verifier.scm") 
 (load "src/backend/expose-frame-var.scm")
 (load "src/backend/flattener.scm")
+(load "src/backend/finalize-locations.scm")
+(load "src/backend/expose-basic-blocks.scm")

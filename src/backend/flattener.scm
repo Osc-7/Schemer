@@ -1,32 +1,53 @@
 (define flatten-program
   (lambda (program)
-    (define flatten-tail
-      (lambda (tail)
+    (define flatten-one-tail
+      (lambda (tail next-label)
         (match tail
+          ;; 匹配条件跳转
+          [(if (,op ,a ,b) (,then-label) (,else-label))
+
+           (if (eq? then-label next-label)
+               `((if (not (,op ,a ,b)) (jump ,else-label)))
+
+               (if (eq? else-label next-label)
+                   `((if (,op ,a ,b) (jump ,then-label)))
+
+                   `((if (,op ,a ,b) (jump ,then-label))
+                     (jump ,else-label))))]
+
+          ;; 匹配无条件跳转
+          [(,label) (guard (label? label))
+           ;; 如果跳转目标不是下一个块，则生成 jump 指令
+           (if (eq? label next-label)
+               '()
+               `((jump ,label)))]
+
+          ;; 匹配 begin 块
           [(begin ,effects ... ,last)
-           (append effects (flatten-tail last))]
+           (append effects (flatten-one-tail last next-label))]
 
-          [(,triv)
-           (list `(jump ,triv))]
+          [,else
+           (error 'flatten-program "Invalid tail expression received" else)])))
 
-          [,other-effect
-           (list other-effect)])))
-
+    ;; 主逻辑
     (match program
-      ;; 匹配 (letrec bindings main-body)
       [(letrec ,bindings ,main-body)
-       (let ([flat-main (flatten-tail main-body)])
-         (let ([flat-bindings
-                (apply
-                 append
-                 (map
-                  (lambda (binding)
-                    (match binding
-                      [(,label (lambda () ,body))
-                       (cons label (flatten-tail body))]
-                      [,else
-                       (error 'flatten-program "Invalid letrec binding format" else)]))
-                  bindings))]) 
-           `(code ,@(append flat-main flat-bindings))))]
-      [,else
-       (error 'flatten-program "Invalid program structure for flatten-program" else)])))
+       (let ([main-body-code
+              (flatten-one-tail
+               main-body
+               (and (pair? bindings) (caar bindings)))])
+         (let loop ([b* bindings])
+           (match b*
+             ['() '()]
+             [(,binding . ,rest)
+              (match binding
+                [(,label (lambda () ,body))
+                 (let ([next-label (and (pair? rest) (caar rest))])
+                   (cons label
+                         (append (flatten-one-tail body next-label)
+                                 (loop rest))))])])))
+
+         `(code ,@(append main-body-code (loop bindings)))])))
+
+      ; [else
+      ;  (error 'flatten-program "Invalid program structure for flatten-program" else)]))
