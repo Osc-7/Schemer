@@ -25,6 +25,9 @@
     (define gen-instruction
       (lambda (instr)
         (match instr
+          [(nop)
+          (emit 'nop)]
+
           [,label (guard (label? label))
                   (emit-label label)]
 

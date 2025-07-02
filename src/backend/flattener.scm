@@ -16,11 +16,14 @@
                      (jump ,else-label))))]
 
           ;; 匹配无条件跳转
-          [(,label) (guard (label? label))
-           ;; 如果跳转目标不是下一个块，则生成 jump 指令
-           (if (eq? label next-label)
-               '()
-               `((jump ,label)))]
+          [(,target) ; 匹配任何单元素列表作为跳转目标
+          (if (label? target)
+              ;; 如果是标签，进行fall-through优化
+              (if (eq? target next-label)
+                  '()
+                  `((jump ,target)))
+              ;; 如果是寄存器(r15)或其他，总是生成 jump
+              `((jump ,target)))]
 
           ;; 匹配 begin 块
           [(begin ,effects ... ,last)
@@ -30,24 +33,29 @@
            (error 'flatten-program "Invalid tail expression received" else)])))
 
     ;; 主逻辑
-    (match program
+   (match program
       [(letrec ,bindings ,main-body)
        (let ([main-body-code
               (flatten-one-tail
                main-body
                (and (pair? bindings) (caar bindings)))])
-         (let loop ([b* bindings])
-           (match b*
-             ['() '()]
-             [(,binding . ,rest)
-              (match binding
-                [(,label (lambda () ,body))
-                 (let ([next-label (and (pair? rest) (caar rest))])
-                   (cons label
-                         (append (flatten-one-tail body next-label)
-                                 (loop rest))))])])))
-
-         `(code ,@(append main-body-code (loop bindings)))])))
-
-      ; [else
+         
+         (letrec
+             ([loop (lambda (b*)
+                      (match b*
+                        ;; 匹配空列表，返回空列表
+                        [() '()] 
+                        ;; 匹配非空列表
+                        [(,binding . ,rest)
+                         (match binding
+                           [(,label (lambda () ,body))
+                            (let ([next-label (and (pair? rest) (caar rest))])
+                              (cons label
+                                    (append (flatten-one-tail body next-label)
+                                            (loop rest))))])]))])
+           
+           ;; *** 在 letrec 的 body 中调用 loop ***
+           `(code ,@(append main-body-code (loop bindings)))))])))
+      
+      ; [,else
       ;  (error 'flatten-program "Invalid program structure for flatten-program" else)]))

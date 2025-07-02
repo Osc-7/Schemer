@@ -789,3 +789,14 @@
     (<= (- (expt 2 (- fixnum-bits 1)))
         n
         (- (expt 2 (- fixnum-bits 1)) 1))))
+
+
+;; helper functions that is implemented by myself
+
+(define (unzip list-of-pairs)
+  (let loop ((lop list-of-pairs) (firsts '()) (seconds '()))
+    (if (null? lop)
+        (values (reverse firsts) (reverse seconds))
+        (loop (cdr lop)
+              (cons (caar lop) firsts)
+              (cons (cadar lop) seconds)))))

@@ -19,8 +19,10 @@
         (match body
           ;; 匹配 (locate bindings tail)
           [(locate ,bindings ,tail)
-           ;; 使用从 bindings 创建的环境来替换 tail 中的变量
-           (substitute tail bindings)]
+            (let ([env (map (lambda (binding)
+                        (cons (car binding) (cadr binding)))
+                      bindings)])
+            (substitute tail env))]
           
           [,else else])))
 
