@@ -32,7 +32,7 @@
         ;; Case 2: begin expression
         [(begin ,effect . ,rest)
          (if (null? rest)
-             (walk effect) ; A (begin x) is just x
+             (walk effect)
              (walk-effect effect `(begin ,@rest)))]
 
         [(,triv)
@@ -42,7 +42,6 @@
         [,else
         (values '() tail)]))
 
-    ;; Processes a Predicate expression.
     (define (walk-pred pred true-label false-label)
       (match pred
         [(true)  (values '() `(,true-label))]
@@ -61,7 +60,6 @@
                           `((,cont-label (lambda () ,pred-code))))
                   effect-code))))]
 
-        ;; Handling nested if in predicate context
         [(if ,p1 ,p2 ,p3)
          (let ([p2-label (unique-label 'pred)]
                [p3-label (unique-label 'pred)])
@@ -74,7 +72,6 @@
                          p1-code)))))]
         [other (error 'expose-basic-blocks "Invalid predicate form" other)]))
     
-      ;; Processes an Effect expression.
   (define (walk-effect effect cont)
     (match effect
       ;; (if pred then-effect else-effect)
@@ -102,7 +99,7 @@
 
       [(nop)
         (walk cont)]
-        
+
       ;; 修复后的 else 分支
       [,else
          (let-values ([(cont-bindings cont-code) (walk cont)])

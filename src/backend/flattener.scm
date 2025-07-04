@@ -18,11 +18,9 @@
           ;; 匹配无条件跳转
           [(,target) ; 匹配任何单元素列表作为跳转目标
           (if (label? target)
-              ;; 如果是标签，进行fall-through优化
               (if (eq? target next-label)
                   '()
                   `((jump ,target)))
-              ;; 如果是寄存器(r15)或其他，总是生成 jump
               `((jump ,target)))]
 
           ;; 匹配 begin 块
@@ -32,7 +30,6 @@
           [,else
            (error 'flatten-program "Invalid tail expression received" else)])))
 
-    ;; 主逻辑
    (match program
       [(letrec ,bindings ,main-body)
        (let ([main-body-code
@@ -54,7 +51,6 @@
                                     (append (flatten-one-tail body next-label)
                                             (loop rest))))])]))])
            
-           ;; *** 在 letrec 的 body 中调用 loop ***
            `(code ,@(append main-body-code (loop bindings)))))])))
       
       ; [,else

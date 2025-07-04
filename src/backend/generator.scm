@@ -12,7 +12,6 @@
 
     (define gen-cond-jump
       (lambda (op negated?)
-        ;; 根据 negated? 的值选择正向或反向的映射表
         (let ([op-map (if negated?
                           '((= . jne) (< . jge) (<= . jg) (> . jle) (>= . jl))
                           '((= . je) (< . jl) (<= . jle) (> . jg) (>= . jge)))])
