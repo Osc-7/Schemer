@@ -4,3 +4,6 @@
 (load "src/backend/flattener.scm")
 (load "src/backend/finalize-locations.scm")
 (load "src/backend/expose-basic-blocks.scm")
+(load "src/backend/uncover-register-conflict.scm")
+(load "src/backend/discard-call-live.scm")
+(load "src/backend/assign-registers.scm")
