@@ -7,3 +7,8 @@
 (load "src/backend/uncover-register-conflict.scm")
 (load "src/backend/discard-call-live.scm")
 (load "src/backend/assign-registers.scm")
+(load "src/backend/introduce-allocation-forms.scm")
+(load "src/backend/uncover-frame-conflict.scm")
+(load "src/backend/select-instructions.scm")
+(load "src/backend/assign-frame.scm")
+(load "src/backend/finalize-frame-locations.scm")

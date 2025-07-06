@@ -3,12 +3,19 @@
     (define substitute
       (lambda (expr env)
         (match expr
-          ;; 基本情况 1: 如果是符号, 检查是否需要替换
           [,x (guard (symbol? x))
               (let ([binding (assq x env)])
                 (if binding (cdr binding) x))]
 
           [,x (guard (not (pair? x))) x]
+
+          [(set! ,var ,val)
+          (let ([new-var (substitute var env)]
+                [new-val (substitute val env)])
+            (if (equal? new-var new-val)
+                '(nop)
+                `(set! ,new-var ,new-val)))]
+
           
           [(,car-expr . ,cdr-expr)
            (cons (substitute car-expr env)
