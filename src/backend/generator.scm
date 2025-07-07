@@ -41,21 +41,20 @@
            (emit 'cmpq b a)
            (emit-jump (gen-cond-jump op #f) target)]
 
-          [(set! ,var1 (sra ,triv1 ,triv2))
-           (let ([tmp 'r10])
-             (emit 'movq triv1 tmp)
-             (emit 'sarq triv2 tmp)
-             (emit 'movq tmp var1))]
+          ; [(set! ,var1 (sra ,triv1 ,triv2))
+          ;  (let ([tmp 'r10])
+          ;    (emit 'movq triv1 tmp)
+          ;    (emit 'sarq triv2 tmp)
+          ;    (emit 'movq tmp var1))]
 
-          [(set! ,var1 (,[gen-binop -> op] ,var2 ,triv))
-           (guard (equal? var1 var2))
+          [(set! ,var1 (,[gen-binop -> op] ,var1 ,triv))
            (emit op triv var1)]
 
-          [(set! ,var1 (,op ,triv1 ,triv2))
-           (let ([tmp 'r10])
-             (emit 'movq triv1 tmp)
-             (emit (gen-binop op) triv2 tmp)
-             (emit 'movq tmp var1))]
+          ; [(set! ,var1 (,op ,triv1 ,triv2))
+          ;  (let ([tmp 'r10])
+          ;    (emit 'movq triv1 tmp)
+          ;    (emit (gen-binop op) triv2 tmp)
+          ;    (emit 'movq tmp var1))]
 
           [(set! ,var ,val)
            (cond

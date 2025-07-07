@@ -11,18 +11,24 @@
          (if (null? spilled-vars)
              body
              (letrec (
+                [get-var-conflicts (lambda (var graph)
+                                     (let ([entry (assq var graph)])
+                                       (if entry (cdr entry) '())))]
                 [do-assignment (lambda (spills-to-assign current-assignments)
                   (if (null? spills-to-assign)
                       current-assignments
                       (let* ([v (car spills-to-assign)]
-                             [used-fvars (map cadr current-assignments)])
+                             [used-fvars (map cadr current-assignments)]
+                             [v-conflicts (get-var-conflicts v frame-graph)])
                         
-                        ;; 从 fv0 开始寻找一个没有被占用的位置
+                        ;; 从 fv0 开始寻找一个没有被占用且不冲突的位置
                         (let loop ([idx 0])
                           (let ([candidate-fv (index->frame-var idx)])
-                            (if (memq candidate-fv used-fvars)
-                                ;; 如果已被占用，就去寻找下一个
+                            (if (or (memq candidate-fv used-fvars)
+                                    (memq candidate-fv v-conflicts))
+                                ;; 如果已被占用或存在冲突，就去寻找下一个
                                 (loop (+ idx 1))
+                                ;; 否则，分配并继续处理下一个spill
                                 (do-assignment 
                                   (cdr spills-to-assign)
                                   (cons `(,v ,candidate-fv) current-assignments))))))))])
@@ -33,7 +39,6 @@
                        (locate ,new-assignments
                          (frame-conflict ,frame-graph ,tail)))))))]
 
-        [(locate ,a ,b) body]
         [,else body]))
 
     (match program
