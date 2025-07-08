@@ -7,5 +7,6 @@ a?/
 src/backend/driver.scm
 run
 temp.scm
-out.txt
+out.scm
+
 src.zip

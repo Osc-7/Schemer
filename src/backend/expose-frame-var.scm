@@ -6,7 +6,7 @@
         ;; Base case
           [,x (guard (symbol? x))
               (if (frame-var? x)
-                  (make-disp-opnd 'rbp (ash (frame-var->index x) align-shift))
+                  (make-disp-opnd frame-pointer-register (ash (frame-var->index x) align-shift))
                   x)]
 
           ;; recursive case

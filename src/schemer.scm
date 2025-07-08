@@ -12,3 +12,6 @@
 (load "src/backend/select-instructions.scm")
 (load "src/backend/assign-frame.scm")
 (load "src/backend/finalize-frame-locations.scm")
+(load "src/backend/remove-complex-opera.scm")
+(load "src/backend/flatten-set.scm")
+(load "src/backend/impose-calling-conventions.scm")
