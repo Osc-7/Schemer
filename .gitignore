@@ -1,7 +1,6 @@
 test.scm
 output
 .vscode/
-.gitignore
 .devcontainer/
 .DS_Store
 a?/
