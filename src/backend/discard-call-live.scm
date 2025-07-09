@@ -1,37 +1,49 @@
 (define discard-call-live
   (lambda (program)
 
-    (define (all-but-last ls)
-      (if (or (null? ls) (null? (cdr ls)))
-          '()
-          (cons (car ls) (all-but-last (cdr ls)))))
+    (define (is-binop? x) (memq x '(+ - * sra logand logor)))
+    (define (is-relop? x) (memq x '(< <= = >= >)))
 
-    (define (get-last ls)
-      (if (null? ls)
-          #f
-          (if (null? (cdr ls))
-              (car ls)
-              (get-last (cdr ls)))))
+    ;; This is the pattern that matches a procedure call but NOT a primitive.
+    (define (is-a-call? rator rands)
+      (and (symbol? rator)
+           (not (null? rands))
+           (not (is-binop? rator))
+           (not (is-relop? rator))))
 
     (define (walk-tail tail)
       (match tail
-        [(if ,pred ,then-tail ,else-tail)
-         `(if ,pred ,(walk-tail then-tail) ,(walk-tail else-tail))]
-        
-        [(begin . ,exprs)
-         (if (null? exprs)
-             '(begin)
-             (let ([effects (all-but-last exprs)]
-                   [final-tail (get-last exprs)])
-               `(begin ,@effects ,(walk-tail final-tail))))]
-
-        [(,triv . ,locs) (guard (not (null? locs)))
-         `(,triv)]
-
+        [(if ,p ,c ,a) `(if ,(walk-pred p) ,(walk-tail c) ,(walk-tail a))]
+        [(begin ,e ... ,t) `(begin ,@(map walk-effect e) ,(walk-tail t))]
+        [(,rator . ,rands) (guard (is-a-call? rator rands)) `(,rator)]
         [,else else]))
+
+    (define (walk-effect effect)
+      (match effect
+        [(return-point ,l ,t) `(return-point ,l ,(walk-tail t))]
+        [(if ,p ,c ,a) `(if ,(walk-pred p) ,(walk-effect c) ,(walk-effect a))]
+        [(begin ,e ...) `(begin ,@(map walk-effect e))]
+        [(set! ,var ,val) `(set! ,var ,(walk-value val))]
+        [(,rator . ,rands) (guard (is-a-call? rator rands)) `(,rator)]
+        [,else else]))
+
+    (define (walk-pred pred)
+      (match pred
+        [(if ,p ,c ,a) `(if ,(walk-pred p) ,(walk-pred c) ,(walk-pred a))]
+        [(begin ,e ... ,p) `(begin ,@(map walk-effect e) ,(walk-pred p))]
+        [,else pred]))
+
+    (define (walk-value val)
+      (match val
+        [(,rator . ,rands) (guard (is-a-call? rator rands)) `(,rator)]
+        [,else val]))
 
     (define (process-body body)
       (match body
+        ;; The input structure is the output of the iterate block
+        [(locals ,l (ulocals ,u (locate ,loc (frame-conflict ,fc (register-conflict ,rc ,tail)))))
+         `(locals ,l (ulocals ,u (locate ,loc (frame-conflict ,fc (register-conflict ,rc ,(walk-tail tail))))))]
+        ;; Fallback for simpler structures during testing
         [(locate ,bindings ,tail)
          `(locate ,bindings ,(walk-tail tail))]
         [,else else]))
@@ -42,8 +54,7 @@
              [new-bindings (map (lambda (binding)
                                   (match binding
                                     [(,label (lambda () ,body))
-                                     `(,label (lambda () ,(process-body body)))]
-                                    [,else-binding (error 'discard-call-live "Invalid binding structure" else-binding)]))
+                                     `(,label (lambda () ,(process-body body)))]))
                                 bindings)])
          `(letrec ,new-bindings ,new-main-body))]
-      [,else (error 'discard-call-live "Invalid program structure" else)])))
+      [,else program])))

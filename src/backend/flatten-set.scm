@@ -37,7 +37,8 @@
          `(if ,(flat p) ,(flat c) ,(flat a))]
         [(begin ,effects ... ,tail)
          `(begin ,@(map flat effects) ,(flat tail))]
-        
+        [(,rator ,rands ...)
+         `(,(flat rator) ,@(map flat rands))]        
         ;; 原子表达式，直接返回
         [,else exp]))
 

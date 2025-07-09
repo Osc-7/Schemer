@@ -20,15 +20,6 @@
             (let-values ([(b2 t2 v2) (values->trivs (cdr vs))])
               (values (append b1 b2) (cons t1 t2) (append v1 v2))))))
               
-    (define (remove-duplicates ls)
-      (letrec ([loop (lambda (in out)
-                       (if (null? in)
-                           (reverse out)
-                           (let ([item (car in)])
-                             (if (memq item out)
-                                 (loop (cdr in) out)
-                                 (loop (cdr in) (cons item out))))))])
-        (loop ls '())))
     (define (map-values-and-append f ls)
       (if (null? ls)
           (values '() '())
@@ -43,7 +34,6 @@
          (let-values ([(new-p p-vars) (walk-pred p)])
            (let-values ([(new-c c-vars) (walk-tail c)])
              (let-values ([(new-a a-vars) (walk-tail a)])
-               ;; 返回重建的 if，并合并所有新变量
                (values `(if ,new-p ,new-c ,new-a)
                        (append p-vars c-vars a-vars)))))]
 
@@ -96,6 +86,7 @@
          (guard (symbol? x))
          (let-values ([(new-v v-vars) (walk-value v)])
            (values `(set! ,x ,new-v) v-vars))]
+
         [(if ,p ,c ,a)
          (let-values ([(new-p p-vars) (walk-pred p)])
            (let-values ([(new-c c-vars) (walk-effect c)])
@@ -107,28 +98,45 @@
            (let-values ([(new-last-effect last-effect-vars) (walk-effect last-effect)])
              (values (make-begin (append new-effects (list last-effect)))
                      (append effects-vars last-effect-vars))))]
+        ;; ++ A7: Handle non-tail calls in Effect context.
+        [(,rator ,rands ...)
+         (let-values ([(rator-binds new-rator rator-vars) (value->triv rator)])
+           (let-values ([(rands-binds new-rands rands-vars) (values->trivs rands)])
+             (values (make-begin (append rator-binds rands-binds (list `(,new-rator ,@new-rands))))
+                     (append rator-vars rands-vars))))]
         [,else-effect (error 'walk-effect "Invalid Effect expression" else-effect)]))
 
     (define (walk-value value)
       (match value
         [,triv (guard (Triv? triv))
                (values triv '())]
+
         [(,op ,v1 ,v2) (guard (is-binop? op))
          (let-values ([(b1 t1 v1-vars) (value->triv v1)])
            (let-values ([(b2 t2 v2-vars) (value->triv v2)])
              (values (make-begin (append b1 b2 (list `(,op ,t1 ,t2))))
                      (append v1-vars v2-vars))))]
+
+
+        
         [(if ,p ,c ,a)
          (let-values ([(new-p p-vars) (walk-pred p)])
            (let-values ([(new-c c-vars) (walk-value c)])
              (let-values ([(new-a a-vars) (walk-value a)])
                (values `(if ,new-p ,new-c ,new-a)
                        (append p-vars c-vars a-vars)))))]
+
         [(begin ,effects ... ,last-val)
          (let-values ([(new-effects effects-vars) (map-values-and-append walk-effect effects)])
            (let-values ([(new-last-val val-vars) (walk-value last-val)])
              (values (make-begin (append new-effects (list last-val)))
                      (append effects-vars val-vars))))]
+        ;; ++ A7: Handle non-tail calls in Value context.
+        [(,rator ,rands ...)
+         (let-values ([(rator-binds new-rator rator-vars) (value->triv rator)])
+           (let-values ([(rands-binds new-rands rands-vars) (values->trivs rands)])
+             (values (make-begin (append rator-binds rands-binds (list `(,new-rator ,@new-rands))))
+                     (append rator-vars rands-vars))))]
         [,else-value (error 'walk-value "Invalid Value expression" else-value)]))
 
     (define (process-body body)

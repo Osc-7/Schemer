@@ -89,6 +89,11 @@
     (define (walk-effect effect)
       (match effect
         [(nop) (values effect '())]
+        
+        [(return-point ,label ,tail)
+          (let-values ([(new-tail u) (walk-tail tail)])
+            (values `(return-point ,label ,new-tail) u))] 
+
         [(if ,p ,t ,e)
          (let-values ([(new-p u1) (walk-pred p)])
            (cond

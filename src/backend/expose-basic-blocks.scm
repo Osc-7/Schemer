@@ -5,7 +5,7 @@
     ;; 1. A list of new (label . lambda) bindings created.
     ;; 2. The new, transformed Tail expression.
 
-    (define (make-begin effect tail)
+    (define (wrap-begin effect tail)
       (match tail
         ;; 如果 tail 已经是一个 begin, 就把 effect 插入到最前面
         [(begin ,exprs ...) `(begin ,effect ,@exprs)]
@@ -72,39 +72,45 @@
                          p1-code)))))]
         [other (error 'expose-basic-blocks "Invalid predicate form" other)]))
     
-  (define (walk-effect effect cont)
-    (match effect
-      ;; (if pred then-effect else-effect)
-      [(if ,pred ,then-e ,else-e)
-      (let ([then-label (unique-label 'then)]
-            [else-label (unique-label 'else)]
-            [join-label (unique-label 'join)])
-        (let-values ([(pred-bindings pred-code) (walk-pred pred then-label else-label)])
-          (let-values ([(then-bindings then-code) (walk-effect then-e `(,join-label))])
-            (let-values ([(else-bindings else-code) (walk-effect else-e `(,join-label))])
-              (let-values ([(cont-bindings cont-code) (walk cont)])
-                (values
-                  (append pred-bindings
-                          then-bindings
-                          else-bindings
-                          cont-bindings
-                          `((,then-label (lambda () ,then-code))
-                            (,else-label (lambda () ,else-code))
-                            (,join-label (lambda () ,cont-code))))
-                  pred-code))))))]
-      
-      ;; (begin effect... effect)
-      [(begin ,e1 ,e* ...)
-       (walk-effect e1 `(begin ,@e* ,cont))]
+;; 替换旧的 walk-effect 函数
+(define (walk-effect effect cont)
+  (match effect
+    ;; A7 新增: 处理 return-point
+    [(return-point ,rp-label ,inner-tail)
+     (let-values ([(cont-bindings cont-code) (walk cont)])
+       (let-values ([(tail-bindings tail-code) (walk inner-tail)])
+         (values (append tail-bindings
+                         cont-bindings
+                         `((,rp-label (lambda () ,cont-code))))
+                 tail-code)))]
 
-      [(nop)
-        (walk cont)]
+    [(if ,pred ,then-e ,else-e)
+     (let ([then-label (unique-label 'then)]
+           [else-label (unique-label 'else)]
+           [join-label (unique-label 'join)])
+       (let-values ([(pred-bindings pred-code) (walk-pred pred then-label else-label)])
+         (let-values ([(then-bindings then-code) (walk-effect then-e `(,join-label))])
+           (let-values ([(else-bindings else-code) (walk-effect else-e `(,join-label))])
+             (let-values ([(cont-bindings cont-code) (walk cont)])
+               (values
+                (append pred-bindings
+                        then-bindings
+                        else-bindings
+                        cont-bindings
+                        `((,then-label (lambda () ,then-code))
+                          (,else-label (lambda () ,else-code))
+                          (,join-label (lambda () ,cont-code))))
+                pred-code))))))]
+    
+    [(begin ,e1 ,e* ...)
+     (walk-effect e1 `(begin ,@e* ,cont))]
 
-      ;; 修复后的 else 分支
-      [,else
-         (let-values ([(cont-bindings cont-code) (walk cont)])
-           (values cont-bindings (make-begin effect cont-code)))]))
-
+    [(nop)
+     (walk cont)]
+     
+    [,else
+      (let-values ([(cont-bindings cont-code) (walk cont)])
+        (values cont-bindings (wrap-begin effect cont-code)))]))
 
     (match program
       [(letrec ,bindings ,main-body)

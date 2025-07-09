@@ -15,3 +15,5 @@
 (load "src/backend/remove-complex-opera.scm")
 (load "src/backend/flatten-set.scm")
 (load "src/backend/impose-calling-conventions.scm")
+(load "src/backend/assign-new-frame.scm")
+(load "src/backend/pre-assign-frame.scm")

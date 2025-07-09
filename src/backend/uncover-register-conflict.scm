@@ -57,6 +57,8 @@
           (define (walk-effect effect live-set)
             (match effect
               [(nop) live-set]
+              [(return-point ,label ,tail)
+                (walk-tail tail)]
               [(set! ,var (,binop ,triv1 ,triv2))
                (let* ([live-after (difference live-set (list var))]
                       [live-rhs (union (live-in-triv triv1) (live-in-triv triv2))]

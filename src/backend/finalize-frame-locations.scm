@@ -33,6 +33,9 @@
         ;; Base Case: 非符号、非列表，直接返回
         [,x (guard (not (pair? x))) x]
 
+        [(return-point ,label ,tail)
+          `(return-point ,label ,(substitute tail env))]
+          
         [(set! ,var ,val)
          (let ([new-var (substitute var env)]
                [new-val (substitute val env)])
@@ -40,11 +43,15 @@
                '(nop)
                `(set! ,new-var ,new-val)))]
 
+        [(,rator . ,rands) (guard (symbol? rator))
+        (cons rator (substitute rands env))]
+        
         ;; 递归处理列表
         [(,car-expr . ,cdr-expr)
          (cons (substitute car-expr env)
                (substitute cdr-expr env))]
-        
+          
+
         [,else else]))
 
     (match program

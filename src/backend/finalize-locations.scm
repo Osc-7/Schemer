@@ -8,7 +8,8 @@
                 (if binding (cdr binding) x))]
 
           [,x (guard (not (pair? x))) x]
-
+          [(return-point ,label ,tail)
+          `(return-point ,label ,(substitute tail env))]
           [(set! ,var ,val)
           (let ([new-var (substitute var env)]
                 [new-val (substitute val env)])
