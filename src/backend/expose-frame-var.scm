@@ -13,13 +13,11 @@
 
         [,x (guard (not (pair? x))) (values x offset)]
 
-        ;; --- A7 新增：流敏感地处理 fp 赋值 ---
         [(set! ,var (+ ,rator ,nb)) (guard (and (eq? var frame-pointer-register) (eq? rator frame-pointer-register)))
-         (values '(nop) (+ offset nb))]
+        (values `(set! ,var (+ ,rator ,nb)) (+ offset nb))]
 
         [(set! ,var (- ,rator ,nb)) (guard (and (eq? var frame-pointer-register) (eq? rator frame-pointer-register)))
-         (values '(nop) (- offset nb))]
-        ;; -----------------------------------------
+        (values `(set! ,var (- ,rator ,nb)) (- offset nb))]
 
         [(return-point ,label ,tail)
          (let-values ([(new-tail new-offset) (walk tail offset)])
@@ -77,6 +75,6 @@
 
         [,else (values else offset)]))
 
-    ;; 启动遍历，初始偏移量为 0
+    ;; 初始偏移量为 0
     (let-values ([(result offset) (walk program 0)])
       result)))

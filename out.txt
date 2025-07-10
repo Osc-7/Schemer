@@ -1,0 +1,744 @@
+> (test-one '(letrec ([expt$0 (lambda (n.1 m.2)                       (locals ()                         (if (= m.2 1)                
+             n.1                             (* n.1 (expt$0 n.1 (- m.2 1))))))]             [div$1 (lambda (n.1 d.2)                  
+    (locals ()                        (div-helper$2                          31                          (- (* 2 n.1) d.2)            
+              (* d.2 (expt$0 2 32))                          0)))]             [div-helper$2 (lambda (i.1 p.2 d.3 q.4)                
+             (locals ()                               (if (> 0 i.1)                                   q.4                             
+      (if (>= p.2 0)                                       (div-helper$2                                         (- i.1 1)            
+                             (- (* 2 p.2) d.3)                                         d.3                                         (lo
+gor (expt$0 2 i.1) q.4))                                       (div-helper$2                                         (- i.1 1)        
+                                 (- (* 2 (+ p.2 d.3)) d.3)                                         d.3                                
+         q.4)))))])      (locals () (div$1 153 17))) (tracer #t))
+
+verify-scheme:
+(letrec ([expt$0 (lambda (n.1 m.2)
+                   (locals ()
+                     (if (= m.2 1) n.1 (* n.1 (expt$0 n.1 (- m.2 1))))))]
+         [div$1 (lambda (n.1 d.2)
+                  (locals ()
+                    (div-helper$2
+                      31
+                      (- (* 2 n.1) d.2)
+                      (* d.2 (expt$0 2 32))
+                      0)))]
+         [div-helper$2 (lambda (i.1 p.2 d.3 q.4)
+                         (locals ()
+                           (if (> 0 i.1)
+                               q.4
+                               (if (>= p.2 0)
+                                   (div-helper$2
+                                     (- i.1 1)
+                                     (- (* 2 p.2) d.3)
+                                     d.3
+                                     (logor (expt$0 2 i.1) q.4))
+                                   (div-helper$2
+                                     (- i.1 1)
+                                     (- (* 2 (+ p.2 d.3)) d.3)
+                                     d.3
+                                     q.4)))))])
+  (locals () (div$1 153 17)))
+
+remove-complex-opera*:
+(letrec ([expt$0 (lambda (n.1 m.2)
+                   (locals (tmp.14 tmp.15 tmp.16)
+                     (if (= m.2 1)
+                         n.1
+                         (begin
+                           (set! tmp.16
+                             (begin
+                               (set! tmp.15
+                                 (begin
+                                   (set! tmp.14 (- m.2 1))
+                                   (expt$0 n.1 tmp.14)))
+                               (* n.1 tmp.15)))
+                           tmp.16))))]
+         [div$1 (lambda (n.1 d.2)
+                  (locals (tmp.17 tmp.18 tmp.19 tmp.20)
+                    (begin
+                      (set! tmp.18
+                        (begin (set! tmp.17 (* 2 n.1)) (- tmp.17 d.2)))
+                      (set! tmp.20
+                        (begin (set! tmp.19 (expt$0 2 32)) (* d.2 tmp.19)))
+                      (div-helper$2 31 tmp.18 tmp.20 0))))]
+         [div-helper$2 (lambda (i.1 p.2 d.3 q.4)
+                         (locals (tmp.5 tmp.6 tmp.7 tmp.8 tmp.9 tmp.10 tmp.11 tmp.12 tmp.13)
+                           (if (> 0 i.1)
+                               q.4
+                               (if (>= p.2 0)
+                                   (begin
+                                     (set! tmp.5 (- i.1 1))
+                                     (set! tmp.7
+                                       (begin
+                                         (set! tmp.6 (* 2 p.2))
+                                         (- tmp.6 d.3)))
+                                     (set! tmp.9
+                                       (begin
+                                         (set! tmp.8 (expt$0 2 i.1))
+                                         (logor tmp.8 q.4)))
+                                     (div-helper$2 tmp.5 tmp.7 d.3 tmp.9))
+                                   (begin
+                                     (set! tmp.10 (- i.1 1))
+                                     (set! tmp.13
+                                       (begin
+                                         (set! tmp.12
+                                           (begin
+                                             (set! tmp.11 (+ p.2 d.3))
+                                             (* 2 tmp.11)))
+                                         (- tmp.12 d.3)))
+                                     (div-helper$2
+                                       tmp.10
+                                       tmp.13
+                                       d.3
+                                       q.4))))))])
+  (locals () (div$1 153 17)))
+
+flatten-set!:
+(letrec ([expt$0 (lambda (n.1 m.2)
+                   (locals (tmp.14 tmp.15 tmp.16)
+                     (if (= m.2 1)
+                         n.1
+                         (begin
+                           (begin
+                             (begin
+                               (set! tmp.14 (- m.2 1))
+                               (set! tmp.15 (expt$0 n.1 tmp.14)))
+                             (set! tmp.16 (* n.1 tmp.15)))
+                           tmp.16))))]
+         [div$1 (lambda (n.1 d.2)
+                  (locals (tmp.17 tmp.18 tmp.19 tmp.20)
+                    (begin
+                      (begin
+                        (set! tmp.17 (* 2 n.1))
+                        (set! tmp.18 (- tmp.17 d.2)))
+                      (begin
+                        (set! tmp.19 (expt$0 2 32))
+                        (set! tmp.20 (* d.2 tmp.19)))
+                      (div-helper$2 31 tmp.18 tmp.20 0))))]
+         [div-helper$2 (lambda (i.1 p.2 d.3 q.4)
+                         (locals (tmp.5 tmp.6 tmp.7 tmp.8 tmp.9 tmp.10 tmp.11 tmp.12 tmp.13)
+                           (if (> 0 i.1)
+                               q.4
+                               (if (>= p.2 0)
+                                   (begin
+                                     (set! tmp.5 (- i.1 1))
+                                     (begin
+                                       (set! tmp.6 (* 2 p.2))
+                                       (set! tmp.7 (- tmp.6 d.3)))
+                                     (begin
+                                       (set! tmp.8 (expt$0 2 i.1))
+                                       (set! tmp.9 (logor tmp.8 q.4)))
+                                     (div-helper$2 tmp.5 tmp.7 d.3 tmp.9))
+                                   (begin
+                                     (set! tmp.10 (- i.1 1))
+                                     (begin
+                                       (begin
+                                         (set! tmp.11 (+ p.2 d.3))
+                                         (set! tmp.12 (* 2 tmp.11)))
+                                       (set! tmp.13 (- tmp.12 d.3)))
+                                     (div-helper$2
+                                       tmp.10
+                                       tmp.13
+                                       d.3
+                                       q.4))))))])
+  (locals () (div$1 153 17)))
+
+impose-calling-conventions:
+(letrec ([expt$0 (lambda ()
+                   (locals (n.1 m.2 rp.23 tmp.14 tmp.15 tmp.16)
+                     (new-frames (())
+                       (begin
+                         (set! rp.23 r15)
+                         (set! n.1 r8)
+                         (set! m.2 r9)
+                         (if (= m.2 1)
+                             (begin (set! rax n.1) (rp.23 rbp rax))
+                             (begin
+                               (set! tmp.14 (- m.2 1))
+                               (return-point rp-label$24
+                                 (begin
+                                   (set! r8 n.1)
+                                   (set! r9 tmp.14)
+                                   (set! r15 rp-label$24)
+                                   (expt$0 rbp r15 r8 r9)))
+                               (set! tmp.15 rax)
+                               (set! tmp.16 (* n.1 tmp.15))
+                               (set! rax tmp.16)
+                               (rp.23 rbp rax)))))))]
+         [div$1 (lambda ()
+                  (locals (n.1 d.2 rp.25 tmp.17 tmp.18 tmp.19 tmp.20)
+                    (new-frames (())
+                      (begin
+                        (set! rp.25 r15)
+                        (set! n.1 r8)
+                        (set! d.2 r9)
+                        (begin
+                          (set! tmp.17 (* 2 n.1))
+                          (set! tmp.18 (- tmp.17 d.2))
+                          (return-point rp-label$26
+                            (begin
+                              (set! r8 2)
+                              (set! r9 32)
+                              (set! r15 rp-label$26)
+                              (expt$0 rbp r15 r8 r9)))
+                          (set! tmp.19 rax)
+                          (set! tmp.20 (* d.2 tmp.19))
+                          (set! fv1 0)
+                          (set! fv0 tmp.20)
+                          (set! r9 tmp.18)
+                          (set! r8 31)
+                          (set! r15 rp.25)
+                          (div-helper$2 rbp r15 r8 r9 fv0 fv1))))))]
+         [div-helper$2 (lambda ()
+                         (locals (i.1 p.2 d.3 q.4 rp.21 tmp.5 tmp.6 tmp.7 tmp.8 tmp.9 tmp.10 tmp.11 tmp.12 tmp.13)
+                           (new-frames (())
+                             (begin
+                               (set! rp.21 r15)
+                               (set! i.1 r8)
+                               (set! p.2 r9)
+                               (set! d.3 fv0)
+                               (set! q.4 fv1)
+                               (if (> 0 i.1)
+                                   (begin (set! rax q.4) (rp.21 rbp rax))
+                                   (if (>= p.2 0)
+                                       (begin
+                                         (set! tmp.5 (- i.1 1))
+                                         (set! tmp.6 (* 2 p.2))
+                                         (set! tmp.7 (- tmp.6 d.3))
+                                         (return-point rp-label$22
+                                           (begin
+                                             (set! r8 2)
+                                             (set! r9 i.1)
+                                             (set! r15 rp-label$22)
+                                             (expt$0 rbp r15 r8 r9)))
+                                         (set! tmp.8 rax)
+                                         (set! tmp.9 (logor tmp.8 q.4))
+                                         (set! fv1 tmp.9)
+                                         (set! fv0 d.3)
+                                         (set! r9 tmp.7)
+                                         (set! r8 tmp.5)
+                                         (set! r15 rp.21)
+                                         (div-helper$2 rbp r15 r8 r9 fv0
+                                           fv1))
+                                       (begin
+                                         (set! tmp.10 (- i.1 1))
+                                         (set! tmp.11 (+ p.2 d.3))
+                                         (set! tmp.12 (* 2 tmp.11))
+                                         (set! tmp.13 (- tmp.12 d.3))
+                                         (set! fv1 q.4)
+                                         (set! fv0 d.3)
+                                         (set! r9 tmp.13)
+                                         (set! r8 tmp.10)
+                                         (set! r15 rp.21)
+                                         (div-helper$2 rbp r15 r8 r9 fv0
+                                           fv1))))))))])
+  (locals (rp.27)
+    (begin
+      (set! rp.27 r15)
+      (begin
+        (set! r9 17)
+        (set! r8 153)
+        (set! r15 rp.27)
+        (div$1 rbp r15 r8 r9)))))
+
+uncover-frame-conflict:
+(letrec ([expt$0 (lambda ()
+                   (locals (n.1 m.2 rp.23 tmp.14 tmp.15 tmp.16)
+                     (new-frames (())
+                       (spills (rp.23 n.1)
+                         (frame-conflict ([n.1 r9 rbp rax rp.23 m.2 tmp.14
+                                           tmp.15]
+                                          [m.2 n.1 rbp rax rp.23]
+                                          [rp.23 r8 r9 rbp rax n.1 m.2
+                                           tmp.14 tmp.15 tmp.16]
+                                          [tmp.14 n.1 rbp rax rp.23]
+                                          [tmp.15 n.1 rbp rp.23]
+                                          [tmp.16 rbp rp.23])
+                           (call-live (rp.23 n.1)
+                             (begin
+                               (set! rp.23 r15)
+                               (set! n.1 r8)
+                               (set! m.2 r9)
+                               (if (= m.2 1)
+                                   (begin (set! rax n.1) (rp.23 rbp rax))
+                                   (begin
+                                     (set! tmp.14 (- m.2 1))
+                                     (return-point rp-label$24
+                                       (begin
+                                         (set! r8 n.1)
+                                         (set! r9 tmp.14)
+                                         (set! r15 rp-label$24)
+                                         (expt$0 rbp r15 r8 r9)))
+                                     (set! tmp.15 rax)
+                                     (set! tmp.16 (* n.1 tmp.15))
+                                     (set! rax tmp.16)
+                                     (rp.23 rbp rax))))))))))]
+         [div$1 (lambda ()
+                  (locals (n.1 d.2 rp.25 tmp.17 tmp.18 tmp.19 tmp.20)
+                    (new-frames (())
+                      (spills (rp.25 tmp.18 d.2)
+                        (frame-conflict ([n.1 r9 rbp rax rp.25 d.2]
+                                         [d.2 n.1 rbp rax rp.25 tmp.17
+                                          tmp.18 tmp.19]
+                                         [rp.25 r8 r9 rbp rax n.1 d.2
+                                          tmp.17 tmp.18 tmp.19 tmp.20]
+                                         [tmp.17 d.2 rbp rax rp.25]
+                                         [tmp.18 rbp rax d.2 rp.25 tmp.19
+                                          tmp.20]
+                                         [tmp.19 d.2 tmp.18 rp.25 rbp]
+                                         [tmp.20 tmp.18 rp.25 rbp])
+                          (call-live (rp.25 tmp.18 d.2)
+                            (begin
+                              (set! rp.25 r15)
+                              (set! n.1 r8)
+                              (set! d.2 r9)
+                              (begin
+                                (set! tmp.17 (* 2 n.1))
+                                (set! tmp.18 (- tmp.17 d.2))
+                                (return-point rp-label$26
+                                  (begin
+                                    (set! r8 2)
+                                    (set! r9 32)
+                                    (set! r15 rp-label$26)
+                                    (expt$0 rbp r15 r8 r9)))
+                                (set! tmp.19 rax)
+                                (set! tmp.20 (* d.2 tmp.19))
+                                (set! fv1 0)
+                                (set! fv0 tmp.20)
+                                (set! r9 tmp.18)
+                                (set! r8 31)
+                                (set! r15 rp.25)
+                                (div-helper$2 rbp r15 r8 r9 fv0
+                                  fv1)))))))))]
+         [div-helper$2 (lambda ()
+                         (locals (i.1 p.2 d.3 q.4 rp.21 tmp.5 tmp.6 tmp.7 tmp.8 tmp.9 tmp.10 tmp.11 tmp.12 tmp.13)
+                           (new-frames (())
+                             (spills (rp.21 tmp.5 tmp.7 d.3 q.4)
+                               (frame-conflict ([i.1 r9 fv0 fv1 rp.21 rbp
+                                                 rax p.2 d.3 q.4 tmp.5
+                                                 tmp.6 tmp.7]
+                                                [p.2 fv0 fv1 i.1 rp.21 rbp
+                                                 rax d.3 q.4 tmp.10 tmp.5]
+                                                [d.3 fv1 i.1 p.2 rp.21 rbp
+                                                 rax q.4 tmp.10 tmp.11
+                                                 tmp.12 tmp.13 tmp.5 tmp.6
+                                                 tmp.7 tmp.8 tmp.9]
+                                                [q.4 i.1 d.3 p.2 rp.21 rbp
+                                                 rax tmp.10 tmp.11 tmp.12
+                                                 tmp.13 tmp.5 tmp.6 tmp.7
+                                                 tmp.8]
+                                                [rp.21 r8 r9 fv0 fv1 rbp
+                                                 rax i.1 p.2 d.3 q.4 tmp.10
+                                                 tmp.11 tmp.12 tmp.13 tmp.5
+                                                 tmp.6 tmp.7 tmp.8 tmp.9]
+                                                [tmp.5 p.2 d.3 i.1 rbp rax
+                                                 q.4 rp.21 tmp.6 tmp.7
+                                                 tmp.8 tmp.9]
+                                                [tmp.6 d.3 i.1 rbp rax q.4
+                                                 tmp.5 rp.21]
+                                                [tmp.7 i.1 rbp rax q.4 d.3
+                                                 tmp.5 rp.21 tmp.8 tmp.9]
+                                                [tmp.8 q.4 d.3 tmp.7 tmp.5
+                                                 rp.21 rbp]
+                                                [tmp.9 d.3 tmp.7 tmp.5
+                                                 rp.21 rbp]
+                                                [tmp.10 d.3 p.2 q.4 rp.21
+                                                 rbp tmp.11 tmp.12 tmp.13]
+                                                [tmp.11 d.3 q.4 tmp.10
+                                                 rp.21 rbp]
+                                                [tmp.12 d.3 q.4 tmp.10
+                                                 rp.21 rbp]
+                                                [tmp.13 q.4 d.3 tmp.10
+                                                 rp.21 rbp])
+                                 (call-live (rp.21 tmp.5 tmp.7 d.3 q.4)
+                                   (begin
+                                     (set! rp.21 r15)
+                                     (set! i.1 r8)
+                                     (set! p.2 r9)
+                                     (set! d.3 fv0)
+                                     (set! q.4 fv1)
+                                     (if (> 0 i.1)
+                                         (begin
+                                           (set! rax q.4)
+                                           (rp.21 rbp rax))
+                                         (if (>= p.2 0)
+                                             (begin
+                                               (set! tmp.5 (- i.1 1))
+                                               (set! tmp.6 (* 2 p.2))
+                                               (set! tmp.7 (- tmp.6 d.3))
+                                               (return-point rp-label$22
+                                                 (begin
+                                                   (set! r8 2)
+                                                   (set! r9 i.1)
+                                                   (set! r15 rp-label$22)
+                                                   (expt$0 rbp r15 r8 r9)))
+                                               (set! tmp.8 rax)
+                                               (set! tmp.9
+                                                 (logor tmp.8 q.4))
+                                               (set! fv1 tmp.9)
+                                               (set! fv0 d.3)
+                                               (set! r9 tmp.7)
+                                               (set! r8 tmp.5)
+                                               (set! r15 rp.21)
+                                               (div-helper$2 rbp r15 r8 r9
+                                                 fv0 fv1))
+                                             (begin
+                                               (set! tmp.10 (- i.1 1))
+                                               (set! tmp.11 (+ p.2 d.3))
+                                               (set! tmp.12 (* 2 tmp.11))
+                                               (set! tmp.13 (- tmp.12 d.3))
+                                               (set! fv1 q.4)
+                                               (set! fv0 d.3)
+                                               (set! r9 tmp.13)
+                                               (set! r8 tmp.10)
+                                               (set! r15 rp.21)
+                                               (div-helper$2 rbp r15 r8 r9
+                                                 fv0 fv1)))))))))))])
+  (locals (rp.27)
+    (spills ()
+      (frame-conflict ([rp.27 rbp])
+        (call-live ()
+          (begin
+            (set! rp.27 r15)
+            (begin
+              (set! r9 17)
+              (set! r8 153)
+              (set! r15 rp.27)
+              (div$1 rbp r15 r8 r9))))))))
+
+pre-assign-frame:
+
+Error occurred running output of pass pre-assign-frame
+pre-assign-frame input:
+(letrec ([expt$0 (lambda ()
+                   (locals (n.1 m.2 rp.23 tmp.14 tmp.15 tmp.16)
+                     (new-frames (())
+                       (spills (rp.23 n.1)
+                         (frame-conflict ([n.1 r9 rbp rax rp.23 m.2 tmp.14
+                                           tmp.15]
+                                          [m.2 n.1 rbp rax rp.23]
+                                          [rp.23 r8 r9 rbp rax n.1 m.2
+                                           tmp.14 tmp.15 tmp.16]
+                                          [tmp.14 n.1 rbp rax rp.23]
+                                          [tmp.15 n.1 rbp rp.23]
+                                          [tmp.16 rbp rp.23])
+                           (call-live (rp.23 n.1)
+                             (begin
+                               (set! rp.23 r15)
+                               (set! n.1 r8)
+                               (set! m.2 r9)
+                               (if (= m.2 1)
+                                   (begin (set! rax n.1) (rp.23 rbp rax))
+                                   (begin
+                                     (set! tmp.14 (- m.2 1))
+                                     (return-point rp-label$24
+                                       (begin
+                                         (set! r8 n.1)
+                                         (set! r9 tmp.14)
+                                         (set! r15 rp-label$24)
+                                         (expt$0 rbp r15 r8 r9)))
+                                     (set! tmp.15 rax)
+                                     (set! tmp.16 (* n.1 tmp.15))
+                                     (set! rax tmp.16)
+                                     (rp.23 rbp rax))))))))))]
+         [div$1 (lambda ()
+                  (locals (n.1 d.2 rp.25 tmp.17 tmp.18 tmp.19 tmp.20)
+                    (new-frames (())
+                      (spills (rp.25 tmp.18 d.2)
+                        (frame-conflict ([n.1 r9 rbp rax rp.25 d.2]
+                                         [d.2 n.1 rbp rax rp.25 tmp.17
+                                          tmp.18 tmp.19]
+                                         [rp.25 r8 r9 rbp rax n.1 d.2
+                                          tmp.17 tmp.18 tmp.19 tmp.20]
+                                         [tmp.17 d.2 rbp rax rp.25]
+                                         [tmp.18 rbp rax d.2 rp.25 tmp.19
+                                          tmp.20]
+                                         [tmp.19 d.2 tmp.18 rp.25 rbp]
+                                         [tmp.20 tmp.18 rp.25 rbp])
+                          (call-live (rp.25 tmp.18 d.2)
+                            (begin
+                              (set! rp.25 r15)
+                              (set! n.1 r8)
+                              (set! d.2 r9)
+                              (begin
+                                (set! tmp.17 (* 2 n.1))
+                                (set! tmp.18 (- tmp.17 d.2))
+                                (return-point rp-label$26
+                                  (begin
+                                    (set! r8 2)
+                                    (set! r9 32)
+                                    (set! r15 rp-label$26)
+                                    (expt$0 rbp r15 r8 r9)))
+                                (set! tmp.19 rax)
+                                (set! tmp.20 (* d.2 tmp.19))
+                                (set! fv1 0)
+                                (set! fv0 tmp.20)
+                                (set! r9 tmp.18)
+                                (set! r8 31)
+                                (set! r15 rp.25)
+                                (div-helper$2 rbp r15 r8 r9 fv0
+                                  fv1)))))))))]
+         [div-helper$2 (lambda ()
+                         (locals (i.1 p.2 d.3 q.4 rp.21 tmp.5 tmp.6 tmp.7 tmp.8 tmp.9 tmp.10 tmp.11 tmp.12 tmp.13)
+                           (new-frames (())
+                             (spills (rp.21 tmp.5 tmp.7 d.3 q.4)
+                               (frame-conflict ([i.1 r9 fv0 fv1 rp.21 rbp
+                                                 rax p.2 d.3 q.4 tmp.5
+                                                 tmp.6 tmp.7]
+                                                [p.2 fv0 fv1 i.1 rp.21 rbp
+                                                 rax d.3 q.4 tmp.10 tmp.5]
+                                                [d.3 fv1 i.1 p.2 rp.21 rbp
+                                                 rax q.4 tmp.10 tmp.11
+                                                 tmp.12 tmp.13 tmp.5 tmp.6
+                                                 tmp.7 tmp.8 tmp.9]
+                                                [q.4 i.1 d.3 p.2 rp.21 rbp
+                                                 rax tmp.10 tmp.11 tmp.12
+                                                 tmp.13 tmp.5 tmp.6 tmp.7
+                                                 tmp.8]
+                                                [rp.21 r8 r9 fv0 fv1 rbp
+                                                 rax i.1 p.2 d.3 q.4 tmp.10
+                                                 tmp.11 tmp.12 tmp.13 tmp.5
+                                                 tmp.6 tmp.7 tmp.8 tmp.9]
+                                                [tmp.5 p.2 d.3 i.1 rbp rax
+                                                 q.4 rp.21 tmp.6 tmp.7
+                                                 tmp.8 tmp.9]
+                                                [tmp.6 d.3 i.1 rbp rax q.4
+                                                 tmp.5 rp.21]
+                                                [tmp.7 i.1 rbp rax q.4 d.3
+                                                 tmp.5 rp.21 tmp.8 tmp.9]
+                                                [tmp.8 q.4 d.3 tmp.7 tmp.5
+                                                 rp.21 rbp]
+                                                [tmp.9 d.3 tmp.7 tmp.5
+                                                 rp.21 rbp]
+                                                [tmp.10 d.3 p.2 q.4 rp.21
+                                                 rbp tmp.11 tmp.12 tmp.13]
+                                                [tmp.11 d.3 q.4 tmp.10
+                                                 rp.21 rbp]
+                                                [tmp.12 d.3 q.4 tmp.10
+                                                 rp.21 rbp]
+                                                [tmp.13 q.4 d.3 tmp.10
+                                                 rp.21 rbp])
+                                 (call-live (rp.21 tmp.5 tmp.7 d.3 q.4)
+                                   (begin
+                                     (set! rp.21 r15)
+                                     (set! i.1 r8)
+                                     (set! p.2 r9)
+                                     (set! d.3 fv0)
+                                     (set! q.4 fv1)
+                                     (if (> 0 i.1)
+                                         (begin
+                                           (set! rax q.4)
+                                           (rp.21 rbp rax))
+                                         (if (>= p.2 0)
+                                             (begin
+                                               (set! tmp.5 (- i.1 1))
+                                               (set! tmp.6 (* 2 p.2))
+                                               (set! tmp.7 (- tmp.6 d.3))
+                                               (return-point rp-label$22
+                                                 (begin
+                                                   (set! r8 2)
+                                                   (set! r9 i.1)
+                                                   (set! r15 rp-label$22)
+                                                   (expt$0 rbp r15 r8 r9)))
+                                               (set! tmp.8 rax)
+                                               (set! tmp.9
+                                                 (logor tmp.8 q.4))
+                                               (set! fv1 tmp.9)
+                                               (set! fv0 d.3)
+                                               (set! r9 tmp.7)
+                                               (set! r8 tmp.5)
+                                               (set! r15 rp.21)
+                                               (div-helper$2 rbp r15 r8 r9
+                                                 fv0 fv1))
+                                             (begin
+                                               (set! tmp.10 (- i.1 1))
+                                               (set! tmp.11 (+ p.2 d.3))
+                                               (set! tmp.12 (* 2 tmp.11))
+                                               (set! tmp.13 (- tmp.12 d.3))
+                                               (set! fv1 q.4)
+                                               (set! fv0 d.3)
+                                               (set! r9 tmp.13)
+                                               (set! r8 tmp.10)
+                                               (set! r15 rp.21)
+                                               (div-helper$2 rbp r15 r8 r9
+                                                 fv0 fv1)))))))))))])
+  (locals (rp.27)
+    (spills ()
+      (frame-conflict ([rp.27 rbp])
+        (call-live ()
+          (begin
+            (set! rp.27 r15)
+            (begin
+              (set! r9 17)
+              (set! r8 153)
+              (set! r15 rp.27)
+              (div$1 rbp r15 r8 r9))))))))
+========
+pre-assign-frame output:
+(letrec ([expt$0 (lambda ()
+                   (locals (n.1 m.2 rp.23 tmp.14 tmp.15 tmp.16)
+                     (new-frames (())
+                       (locate ([n.1 fv1] [rp.23 fv0])
+                         (frame-conflict ([n.1 r9 rbp rax rp.23 m.2 tmp.14
+                                           tmp.15]
+                                          [m.2 n.1 rbp rax rp.23]
+                                          [rp.23 r8 r9 rbp rax n.1 m.2
+                                           tmp.14 tmp.15 tmp.16]
+                                          [tmp.14 n.1 rbp rax rp.23]
+                                          [tmp.15 n.1 rbp rp.23]
+                                          [tmp.16 rbp rp.23])
+                           (call-live (rp.23 n.1)
+                             (begin
+                               (set! rp.23 r15)
+                               (set! n.1 r8)
+                               (set! m.2 r9)
+                               (if (= m.2 1)
+                                   (begin (set! rax n.1) (rp.23 rbp rax))
+                                   (begin
+                                     (set! tmp.14 (- m.2 1))
+                                     (return-point rp-label$24
+                                       (begin
+                                         (set! r8 n.1)
+                                         (set! r9 tmp.14)
+                                         (set! r15 rp-label$24)
+                                         (expt$0 rbp r15 r8 r9)))
+                                     (set! tmp.15 rax)
+                                     (set! tmp.16 (* n.1 tmp.15))
+                                     (set! rax tmp.16)
+                                     (rp.23 rbp rax))))))))))]
+         [div$1 (lambda ()
+                  (locals (n.1 d.2 rp.25 tmp.17 tmp.18 tmp.19 tmp.20)
+                    (new-frames (())
+                      (locate ([d.2 fv2] [tmp.18 fv1] [rp.25 fv0])
+                        (frame-conflict ([n.1 r9 rbp rax rp.25 d.2]
+                                         [d.2 n.1 rbp rax rp.25 tmp.17
+                                          tmp.18 tmp.19]
+                                         [rp.25 r8 r9 rbp rax n.1 d.2
+                                          tmp.17 tmp.18 tmp.19 tmp.20]
+                                         [tmp.17 d.2 rbp rax rp.25]
+                                         [tmp.18 rbp rax d.2 rp.25 tmp.19
+                                          tmp.20]
+                                         [tmp.19 d.2 tmp.18 rp.25 rbp]
+                                         [tmp.20 tmp.18 rp.25 rbp])
+                          (call-live (rp.25 tmp.18 d.2)
+                            (begin
+                              (set! rp.25 r15)
+                              (set! n.1 r8)
+                              (set! d.2 r9)
+                              (begin
+                                (set! tmp.17 (* 2 n.1))
+                                (set! tmp.18 (- tmp.17 d.2))
+                                (return-point rp-label$26
+                                  (begin
+                                    (set! r8 2)
+                                    (set! r9 32)
+                                    (set! r15 rp-label$26)
+                                    (expt$0 rbp r15 r8 r9)))
+                                (set! tmp.19 rax)
+                                (set! tmp.20 (* d.2 tmp.19))
+                                (set! fv1 0)
+                                (set! fv0 tmp.20)
+                                (set! r9 tmp.18)
+                                (set! r8 31)
+                                (set! r15 rp.25)
+                                (div-helper$2 rbp r15 r8 r9 fv0
+                                  fv1)))))))))]
+         [div-helper$2 (lambda ()
+                         (locals (i.1 p.2 d.3 q.4 rp.21 tmp.5 tmp.6 tmp.7 tmp.8 tmp.9 tmp.10 tmp.11 tmp.12 tmp.13)
+                           (new-frames (())
+                             (locate ([q.4 fv4]
+                                      [d.3 fv3]
+                                      [tmp.7 fv1]
+                                      [tmp.5 fv0]
+                                      [rp.21 fv2])
+                               (frame-conflict ([i.1 r9 fv0 fv1 rp.21 rbp
+                                                 rax p.2 d.3 q.4 tmp.5
+                                                 tmp.6 tmp.7]
+                                                [p.2 fv0 fv1 i.1 rp.21 rbp
+                                                 rax d.3 q.4 tmp.10 tmp.5]
+                                                [d.3 fv1 i.1 p.2 rp.21 rbp
+                                                 rax q.4 tmp.10 tmp.11
+                                                 tmp.12 tmp.13 tmp.5 tmp.6
+                                                 tmp.7 tmp.8 tmp.9]
+                                                [q.4 i.1 d.3 p.2 rp.21 rbp
+                                                 rax tmp.10 tmp.11 tmp.12
+                                                 tmp.13 tmp.5 tmp.6 tmp.7
+                                                 tmp.8]
+                                                [rp.21 r8 r9 fv0 fv1 rbp
+                                                 rax i.1 p.2 d.3 q.4 tmp.10
+                                                 tmp.11 tmp.12 tmp.13 tmp.5
+                                                 tmp.6 tmp.7 tmp.8 tmp.9]
+                                                [tmp.5 p.2 d.3 i.1 rbp rax
+                                                 q.4 rp.21 tmp.6 tmp.7
+                                                 tmp.8 tmp.9]
+                                                [tmp.6 d.3 i.1 rbp rax q.4
+                                                 tmp.5 rp.21]
+                                                [tmp.7 i.1 rbp rax q.4 d.3
+                                                 tmp.5 rp.21 tmp.8 tmp.9]
+                                                [tmp.8 q.4 d.3 tmp.7 tmp.5
+                                                 rp.21 rbp]
+                                                [tmp.9 d.3 tmp.7 tmp.5
+                                                 rp.21 rbp]
+                                                [tmp.10 d.3 p.2 q.4 rp.21
+                                                 rbp tmp.11 tmp.12 tmp.13]
+                                                [tmp.11 d.3 q.4 tmp.10
+                                                 rp.21 rbp]
+                                                [tmp.12 d.3 q.4 tmp.10
+                                                 rp.21 rbp]
+                                                [tmp.13 q.4 d.3 tmp.10
+                                                 rp.21 rbp])
+                                 (call-live (rp.21 tmp.5 tmp.7 d.3 q.4)
+                                   (begin
+                                     (set! rp.21 r15)
+                                     (set! i.1 r8)
+                                     (set! p.2 r9)
+                                     (set! d.3 fv0)
+                                     (set! q.4 fv1)
+                                     (if (> 0 i.1)
+                                         (begin
+                                           (set! rax q.4)
+                                           (rp.21 rbp rax))
+                                         (if (>= p.2 0)
+                                             (begin
+                                               (set! tmp.5 (- i.1 1))
+                                               (set! tmp.6 (* 2 p.2))
+                                               (set! tmp.7 (- tmp.6 d.3))
+                                               (return-point rp-label$22
+                                                 (begin
+                                                   (set! r8 2)
+                                                   (set! r9 i.1)
+                                                   (set! r15 rp-label$22)
+                                                   (expt$0 rbp r15 r8 r9)))
+                                               (set! tmp.8 rax)
+                                               (set! tmp.9
+                                                 (logor tmp.8 q.4))
+                                               (set! fv1 tmp.9)
+                                               (set! fv0 d.3)
+                                               (set! r9 tmp.7)
+                                               (set! r8 tmp.5)
+                                               (set! r15 rp.21)
+                                               (div-helper$2 rbp r15 r8 r9
+                                                 fv0 fv1))
+                                             (begin
+                                               (set! tmp.10 (- i.1 1))
+                                               (set! tmp.11 (+ p.2 d.3))
+                                               (set! tmp.12 (* 2 tmp.11))
+                                               (set! tmp.13 (- tmp.12 d.3))
+                                               (set! fv1 q.4)
+                                               (set! fv0 d.3)
+                                               (set! r9 tmp.13)
+                                               (set! r8 tmp.10)
+                                               (set! r15 rp.21)
+                                               (div-helper$2 rbp r15 r8 r9
+                                                 fv0 fv1)))))))))))])
+  (locals (rp.27)
+    (locate ()
+      (frame-conflict ([rp.27 rbp])
+        (call-live ()
+          (begin
+            (set! rp.27 r15)
+            (begin
+              (set! r9 17)
+              (set! r8 153)
+              (set! r15 rp.27)
+              (div$1 rbp r15 r8 r9))))))))
+Exception in mset!: attempt to reference above stack at index 100000
+Type (debug) to enter the debugger.

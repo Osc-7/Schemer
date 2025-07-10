@@ -11,15 +11,20 @@
              (locate ,frame-bindings
                (frame-conflict ,frame-graph
                  (register-conflict ,register-graph ,tail)))))
-         (let* ([spillable-vars local-vars]
-                [unspillable-vars ulocal-vars]
-                [all-vars (union spillable-vars unspillable-vars)]
-                (coloring-result (color-graph all-vars register-graph unspillable-vars))
-                (assignments (car coloring-result))
-                (spills (cdr coloring-result)))
-           (if (null? spills)
-               ;; Success! All variables assigned to registers.
-               `(locate ,(append (map (lambda (p) `(,(car p) ,(cdr p))) assignments) frame-bindings) ,tail)
+        (let* ([spillable-vars local-vars]
+              [unspillable-vars ulocal-vars]
+              ;; 1. Get the list of variables already in the frame.
+              [frame-vars (map car frame-bindings)]
+              [all-vars (union spillable-vars unspillable-vars)]
+              ;; 2. Compute the set of variables that truly need coloring.
+              [vars-to-color (difference all-vars frame-vars)]
+              ;; 3. Pass this corrected list to the coloring function.
+              (coloring-result (color-graph vars-to-color register-graph unspillable-vars))
+              (assignments (car coloring-result))
+              (spills (cdr coloring-result)))
+          (if (null? spills)
+              ;; Success! Now the append will not have duplicates.
+              `(locate ,(append (map (lambda (p) `(,(car p) ,(cdr p))) assignments) frame-bindings) ,tail)
                ;; Failure. Some variables must be spilled.
                `(locals ,(difference spillable-vars spills)
                   (ulocals ,ulocal-vars

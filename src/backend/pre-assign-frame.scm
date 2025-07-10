@@ -32,7 +32,7 @@
           (new-frames ,frames-list
             (spills ,spilled-vars
               (frame-conflict ,frame-graph ,tail))))
-        `(locals ,(difference locals-vars spilled-vars) ; <-- 修改这里
+        `(locals ,locals-vars 
             (new-frames ,frames-list
               ,(spills->locate spilled-vars frame-graph tail)))]
 
@@ -40,7 +40,7 @@
         [(locals ,locals-vars
           (spills ,spilled-vars
             (frame-conflict ,frame-graph ,tail)))
-        `(locals ,(difference locals-vars spilled-vars) ; <-- 修改这里
+        `(locals ,locals-vars 
             ,(spills->locate spilled-vars frame-graph tail))]
 
         ;; If the body has no spills form at all, do nothing.
