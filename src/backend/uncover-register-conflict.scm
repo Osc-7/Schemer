@@ -59,18 +59,41 @@
               [(nop) live-set]
               [(return-point ,label ,tail)
                 (walk-tail tail)]
+              
+              [(mset! ,base ,offset ,val)
+               (let ([live-rhs (union (live-in-triv base) 
+                                      (live-in-triv offset) 
+                                      (live-in-triv val))])
+                 (union live-set live-rhs))]
+
+              [(set! ,var (alloc ,size))
+               (let* ([live-after (difference live-set (list var))]
+                      [live-rhs (live-in-triv size)]
+                      [new-live (union live-after live-rhs)])
+                 (add-conflicts! var live-after)
+                 new-live)]
+              
+              [(set! ,var (mref ,base ,offset))
+               (let* ([live-after (difference live-set (list var))]
+                      [live-rhs (union (live-in-triv base) (live-in-triv offset))]
+                      [new-live (union live-after live-rhs)])
+                 (add-conflicts! var live-after)
+                 new-live)]
+
               [(set! ,var (,binop ,triv1 ,triv2))
                (let* ([live-after (difference live-set (list var))]
                       [live-rhs (union (live-in-triv triv1) (live-in-triv triv2))]
                       [new-live (union live-after live-rhs)])
                  (add-conflicts! var live-after)
                  new-live)]
+
               [(set! ,var ,triv)
                (let* ([live-after (difference live-set (list var))]
                       [live-rhs (live-in-triv triv)]
                       [new-live (union live-after live-rhs)])
                  (add-conflicts! var (difference live-after live-rhs))
                  new-live)]
+
               [(if ,pred ,eff1 ,eff2)
                (let* ([live1 (walk-effect eff1 live-set)]
                       [live2 (walk-effect eff2 live-set)])
@@ -87,6 +110,12 @@
                  (walk-pred pred live-then live-else))]
               [(begin ,effects ... ,last-tail)
                (fold-right walk-effect (walk-tail last-tail) effects)]
+               
+              [(alloc ,size)
+               (live-in-triv size)]
+              [(mref ,base ,offset)
+               (union (live-in-triv base) (live-in-triv offset))]
+
               [(,trv ,live-locs ...)
                (union (live-in-triv trv) live-locs)]
               [else-tail (error 'uncover-register-conflict "Invalid Tail expression" else-tail)]))
@@ -97,7 +126,6 @@
       (match body
         [(locate ,bindings ,tail)
          body]
-
         [(locals ,local-vars
            (ulocals ,ulocal-vars
              (locate ,frame-bindings

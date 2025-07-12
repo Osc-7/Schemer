@@ -4,7 +4,7 @@
       (match rhs
         ;; 规则 1: 右侧是 begin
         [(begin ,effects ... ,last-exp)
-         `(begin ,@effects ,(flatten-rhs var last-exp))]
+        (make-begin (append effects (list (flatten-rhs var last-exp))))]
 
         ;; 规则 2: 右侧是 if
         [(if ,p ,c ,a)
@@ -36,9 +36,9 @@
         [(if ,p ,c ,a)
          `(if ,(flat p) ,(flat c) ,(flat a))]
         [(begin ,effects ... ,tail)
-         `(begin ,@(map flat effects) ,(flat tail))]
-        [(,rator ,rands ...)
-         `(,(flat rator) ,@(map flat rands))]        
+          (make-begin (append (map flat effects) (list (flat tail))))]
+        ; [(,rator ,rands ...)
+        ;  `(,(flat rator) ,@(map flat rands))]        
         ;; 原子表达式，直接返回
         [,else exp]))
 

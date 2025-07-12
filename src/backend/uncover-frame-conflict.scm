@@ -11,13 +11,6 @@
                   (spills ,spills
                     (frame-conflict ,graph
                       (call-live ,call-lives ,tail)))))))]
-        [(locals ,vars-list ,tail)
-        (let-values ([(graph call-lives) (build-conflict-graph vars-list tail)])
-          (let ([spills (filter uvar? call-lives)])
-            `(locals ,vars-list
-                (spills ,spills
-                  (frame-conflict ,graph
-                    (call-live ,call-lives ,tail))))))]
         [,else (error 'uncover-frame-conflict "body structure invalid" body)]))
 
     (define (build-conflict-graph vars tail)
@@ -88,6 +81,29 @@
                (let ([call-live-vars (filter (lambda (v) (or (uvar? v) (frame-var? v))) live-set)])
                  (values (union live-set live-before-tail)
                          (union call-lives call-live-vars cl-tail))))]
+
+            [(set! ,var (alloc ,size))
+             (let* ([live-after (difference live-set (list var))]
+                    [live-rhs (live-in-triv size)]
+                    [new-live (union live-after live-rhs)])
+               (add-conflicts! var live-after)
+               (values new-live call-lives))]
+
+            ;; A8 修改: 处理 (set! var (mref base offset))
+            [(set! ,var (mref ,base ,offset))
+             (let* ([live-after (difference live-set (list var))]
+                    [live-rhs (union (live-in-triv base) (live-in-triv offset))]
+                    [new-live (union live-after live-rhs)])
+               (add-conflicts! var live-after)
+               (values new-live call-lives))]
+
+            ;; A8 修改: 处理 (mset! base offset val) 作为一个 Effect
+            [(mset! ,base ,offset ,val)
+             (let* ([live-rhs (union (live-in-triv base) (live-in-triv offset) (live-in-triv val))]
+                   [new-live (union live-set live-rhs)])
+               ;; mset! 不定义新变量，所以只更新活性集，不添加冲突
+               (values new-live call-lives))]
+               
             [(set! ,var (,binop ,triv1 ,triv2))
              (let* ([live-after (difference live-set (list var))]
                     [live-rhs (union (live-in-triv triv1) (live-in-triv triv2))]
@@ -136,6 +152,12 @@
                         (values live-in cl-in)
                         (let-values ([(live-out cl-out) (loop (cdr fx) live-in cl-in)])
                           (walk-effect (car fx) live-out cl-out)))))]
+                          
+             [(alloc ,size)
+              (values (live-in-triv size) '())]
+             [(mref ,base ,offset)
+              (values (union (live-in-triv base) (live-in-triv offset)) '())]
+
              [(,triv . ,live-locs)
               (values (union (live-in-triv triv) live-locs) '())]
              [else (error 'uncover-frame-conflict "Invalid Tail" t)]))

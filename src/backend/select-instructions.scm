@@ -5,6 +5,14 @@
     (define (is-operand-memory? op) (or (frame-var? op) (disp-opnd? op)))
     (define (is-operand-immediate? op) (integer? op))
     (define (is-commutative? op) (memq op '(+ * logand logor)))
+    (define (trivialize-operand operand)
+      ;; 如果操作数是内存地址，就引入一个临时变量来存储它
+      (if (is-operand-memory? operand)
+          (let ([tmp (unique-name 't)])
+            ;; 返回: 新的临时变量, 用于绑定的set!语句, 新变量列表
+            (values tmp `((set! ,tmp ,operand)) (list tmp)))
+          ;; 如果已经是Trivial，则无需改变
+          (values operand '() '())))
 
     (define (map-walk walk-fn expr-list)
       (if (null? expr-list)
@@ -32,8 +40,8 @@
 
     (define (walk-pred pred)
       (match pred
-        [#t (values #t '())]
-        [#f (values #f '())]
+        [#t (values '(true) '())]
+        [#f (values '(false) '())]
         [(if ,p1 ,p2 ,p3)
          (let-values ([(new-p1 u1) (walk-pred p1)])
            (let-values ([(new-p2 u2) (walk-pred p2)])
@@ -50,11 +58,11 @@
           ;; Case 5: Both operands are immediates — evaluate at compile time
           [(and (is-operand-immediate? triv1) (is-operand-immediate? triv2))
            (let ([result (case relop
-                           [(=) (if (= triv1 triv2) #t #f)]
-                           [(<) (if (< triv1 triv2) #t #f)]
-                           [(>) (if (> triv1 triv2) #t #f)]
-                           [(<=) (if (<= triv1 triv2) #t #f)]
-                           [(>=) (if (>= triv1 triv2) #t #f)]
+                           [(=) (if (= triv1 triv2) '(true) '(false))]
+                           [(<) (if (< triv1 triv2) '(true) '(false))]
+                           [(>) (if (> triv1 triv2) '(true) '(false))]
+                           [(<=) (if (<= triv1 triv2) '(true) '(false))]
+                           [(>=) (if (>= triv1 triv2) '(true) '(false))]
                            [else (error "Unknown relop" relop)])])
              (values result '()))]
            ;; Case 1: triv2 is a large immediate. Return a (begin ...) block as the new Pred.
@@ -94,6 +102,26 @@
           (let-values ([(new-tail u) (walk-tail tail)])
             (values `(return-point ,label ,new-tail) u))] 
 
+        [(mset! ,base ,offset ,val)
+                    (let-values ([(new-base base-binds base-uvars) (trivialize-operand base)])
+                      (let-values ([(new-offset offset-binds offset-uvars) (trivialize-operand offset)])
+                        (let-values ([(new-val val-binds val-uvars)
+
+                                      (if (or (is-operand-memory? val) 
+                                              (label? val)
+                                              (and (is-operand-immediate? val) (not (int32? val))))
+                                          (let ([tmp (unique-name 't)])
+                                            (values tmp
+                                                    `((set! ,tmp ,val)) 
+                                                    (list tmp)))
+                                          (values val '() '()))])
+                          (let* ([all-binds (append base-binds offset-binds val-binds)]
+                                [all-uvars (union base-uvars offset-uvars val-uvars)])
+                            (let-values ([(walked-binds uvars-from-walk) (map-walk walk-effect all-binds)])
+                                (values (make-begin (append walked-binds
+                                                            (list `(mset! ,new-base ,new-offset ,new-val))))
+                                        (union all-uvars uvars-from-walk)))))))]
+                         
         [(if ,p ,t ,e)
          (let-values ([(new-p u1) (walk-pred p)])
            (cond

@@ -6,10 +6,11 @@
 
     ;; This is the pattern that matches a procedure call but NOT a primitive.
     (define (is-a-call? rator rands)
-      (and (symbol? rator)
-           (not (null? rands))
-           (not (is-binop? rator))
-           (not (is-relop? rator))))
+      (and  (symbol? rator)
+            (not (null? rands))
+            (not (is-binop? rator))
+            (not (is-relop? rator))
+            (not (memq rator '(alloc mref mset!)))))
 
     (define (walk-tail tail)
       (match tail

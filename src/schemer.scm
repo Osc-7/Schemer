@@ -17,3 +17,6 @@
 (load "src/backend/impose-calling-conventions.scm")
 (load "src/backend/assign-new-frame.scm")
 (load "src/backend/pre-assign-frame.scm")
+(load "src/backend/verify-uil.scm")
+(load "src/backend/expose-allocation-pointer.scm")
+(load "src/backend/expose-memory-operands.scm")

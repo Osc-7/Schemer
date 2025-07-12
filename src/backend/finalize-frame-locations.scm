@@ -21,38 +21,50 @@
 
         [,else (error 'finalize-frame-locations "Invalid body structure" body)]))
 
-    (define (substitute expr env)
-      (define (lookup var)
-        (let ([binding (assq var env)])
-          (if binding (cadr binding) var)))
+(define (substitute expr env)
+  (define (lookup var)
+    (let ([binding (assq var env)])
+      (if binding (cadr binding) var)))
 
-      (match expr
-        ;; Base Case: 如果是符号, 查找并替换
-        [,x (guard (symbol? x)) (lookup x)]
+  (match expr
+    ;; 基本情况: 原子表达式
+    [,x (guard (symbol? x)) (lookup x)]
+    [,x (guard (not (pair? x))) x]
 
-        ;; Base Case: 非符号、非列表，直接返回
-        [,x (guard (not (pair? x))) x]
+    [(if ,pred ,consequent ,alternative)
+     `(if ,(substitute pred env)
+          ,(substitute consequent env)
+          ,(substitute alternative env))]
 
-        [(return-point ,label ,tail)
-          `(return-point ,label ,(substitute tail env))]
-          
-        [(set! ,var ,val)
-         (let ([new-var (substitute var env)]
-               [new-val (substitute val env)])
-           (if (equal? new-var new-val)
-               '(nop)
-               `(set! ,new-var ,new-val)))]
+    [(begin . ,body)
+     `(begin ,@(map (lambda (e) (substitute e env)) body))]
 
-        [(,rator . ,rands) (guard (symbol? rator))
-        (cons rator (substitute rands env))]
-        
-        ;; 递归处理列表
-        [(,car-expr . ,cdr-expr)
-         (cons (substitute car-expr env)
-               (substitute cdr-expr env))]
-          
+    [(set! ,var ,val)
+     (let ([new-var (substitute var env)]
+           [new-val (substitute val env)])
+       (if (equal? new-var new-val)
+           '(nop)
+           `(set! ,new-var ,new-val)))]
 
-        [,else else]))
+    [(alloc ,size)
+     `(alloc ,(substitute size env))]
+
+    [(mref ,base ,offset)
+     `(mref ,(substitute base env) ,(substitute offset env))]
+
+    [(mset! ,base ,offset ,val)
+     `(mset! ,(substitute base env) ,(substitute offset env) ,(substitute val env))]
+
+    [(return-point ,label ,tail)
+      `(return-point ,label ,(substitute tail env))]
+      
+    ;; 通用的函数/操作符调用规则
+    ;; 这应该放在所有特定结构规则之后
+    [(,rator . ,rands)
+     (cons (substitute rator env)
+           (map (lambda (rand) (substitute rand env)) rands))]
+
+    [,else (error 'substitute "Unhandled expression form" expr)]))
 
     (match program
       [(letrec ,bindings ,main-body)

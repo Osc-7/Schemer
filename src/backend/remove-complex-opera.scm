@@ -3,7 +3,8 @@
     (define (Triv? x) (or (symbol? x) (integer? x)))
     (define (is-binop? x) (memq x '(+ - * sra logand logor)))
     (define (is-relop? x) (memq x '(< <= = >= >)))
-
+    (define (is-memop? x) (memq x '(alloc mref mset!)))
+    (define (is-a-call? x) (and (symbol? x) (not (is-memop? x)) (not (is-binop? x)) (not (is-relop? x))))
     (define (value->triv v)
       (let-values ([(new-v v-vars) (walk-value v)])
         (if (Triv? new-v)
@@ -87,6 +88,11 @@
          (let-values ([(new-v v-vars) (walk-value v)])
            (values `(set! ,x ,new-v) v-vars))]
 
+        [(mset! ,base ,offset ,val)
+         (let-values ([(binds trivs vars) (values->trivs (list base offset val))])
+           (values (make-begin (append binds (list `(mset! ,@trivs))))
+                   vars))]
+
         [(if ,p ,c ,a)
          (let-values ([(new-p p-vars) (walk-pred p)])
            (let-values ([(new-c c-vars) (walk-effect c)])
@@ -96,14 +102,15 @@
         [(begin ,effects ... ,last-effect)
          (let-values ([(new-effects effects-vars) (map-values-and-append walk-effect effects)])
            (let-values ([(new-last-effect last-effect-vars) (walk-effect last-effect)])
-             (values (make-begin (append new-effects (list last-effect)))
+             (values (make-begin (append new-effects (list new-last-effect)))
                      (append effects-vars last-effect-vars))))]
         ;; ++ A7: Handle non-tail calls in Effect context.
-        [(,rator ,rands ...)
+        [(,rator ,rands ...) 
          (let-values ([(rator-binds new-rator rator-vars) (value->triv rator)])
            (let-values ([(rands-binds new-rands rands-vars) (values->trivs rands)])
              (values (make-begin (append rator-binds rands-binds (list `(,new-rator ,@new-rands))))
                      (append rator-vars rands-vars))))]
+
         [,else-effect (error 'walk-effect "Invalid Effect expression" else-effect)]))
 
     (define (walk-value value)
@@ -112,12 +119,21 @@
                (values triv '())]
 
         [(,op ,v1 ,v2) (guard (is-binop? op))
-         (let-values ([(b1 t1 v1-vars) (value->triv v1)])
-           (let-values ([(b2 t2 v2-vars) (value->triv v2)])
-             (values (make-begin (append b1 b2 (list `(,op ,t1 ,t2))))
-                     (append v1-vars v2-vars))))]
+        ;; 将两个操作数打包成列表，统一交给 values->trivs 处理
+        (let-values ([(binds trivs vars) (values->trivs (list v1 v2))])
+          ;; trivs 是一个列表，如 '(triv1 triv2)，我们需要把它解开
+          (values (make-begin (append binds (list `(,op ,(car trivs) ,(cadr trivs)))))
+                  vars))]
 
 
+        [(alloc ,val)
+         (let-values ([(binds triv vars) (value->triv val)])
+           (values (make-begin (append binds (list `(alloc ,triv))))
+                   vars))]
+        [(mref ,base ,offset)
+         (let-values ([(binds trivs vars) (values->trivs (list base offset))])
+           (values (make-begin (append binds (list `(mref ,@trivs))))
+                   vars))]
         
         [(if ,p ,c ,a)
          (let-values ([(new-p p-vars) (walk-pred p)])
@@ -129,14 +145,22 @@
         [(begin ,effects ... ,last-val)
          (let-values ([(new-effects effects-vars) (map-values-and-append walk-effect effects)])
            (let-values ([(new-last-val val-vars) (walk-value last-val)])
-             (values (make-begin (append new-effects (list last-val)))
+             (values (make-begin (append new-effects (list new-last-val)))
                      (append effects-vars val-vars))))]
         ;; ++ A7: Handle non-tail calls in Value context.
         [(,rator ,rands ...)
-         (let-values ([(rator-binds new-rator rator-vars) (value->triv rator)])
-           (let-values ([(rands-binds new-rands rands-vars) (values->trivs rands)])
-             (values (make-begin (append rator-binds rands-binds (list `(,new-rator ,@new-rands))))
-                     (append rator-vars rands-vars))))]
+        (let-values ([(rator-binds new-rator rator-vars) (value->triv rator)])
+          (let-values ([(rands-binds new-rands rands-vars) (values->trivs rands)])
+            (values (make-begin (append rator-binds rands-binds (list `(,new-rator ,@new-rands))))
+                    (append rator-vars rands-vars))))]
+
+        ; [(,rator ,rands ...) (guard (is-a-call? rator))
+        ;  (let ([tmp (unique-name 'tmp)])
+        ;    (let-values ([(rator-binds new-rator rator-vars) (value->triv rator)])
+        ;      (let-values ([(rands-binds new-rands rands-vars) (values->trivs rands)])
+        ;        (values (make-begin (append rator-binds rands-binds (list `(set! ,tmp (,new-rator ,@new-rands)))))
+        ;                (append rator-vars rands-vars (list tmp))))))]
+
         [,else-value (error 'walk-value "Invalid Value expression" else-value)]))
 
     (define (process-body body)

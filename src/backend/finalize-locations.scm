@@ -8,6 +8,14 @@
                 (if binding (cdr binding) x))]
 
           [,x (guard (not (pair? x))) x]
+          
+          [(alloc ,size)
+           `(alloc ,(substitute size env))]
+          [(mref ,base ,offset)
+           `(mref ,(substitute base env) ,(substitute offset env))]
+          [(mset! ,base ,offset ,val)
+           `(mset! ,(substitute base env) ,(substitute offset env) ,(substitute val env))]
+
           [(return-point ,label ,tail)
           `(return-point ,label ,(substitute tail env))]
           [(set! ,var ,val)
