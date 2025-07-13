@@ -20,3 +20,6 @@
 (load "src/backend/verify-uil.scm")
 (load "src/backend/expose-allocation-pointer.scm")
 (load "src/backend/expose-memory-operands.scm")
+(load "src/frontend/verify-scheme.scm")
+(load "src/frontend/uncover-locals.scm")
+(load "src/frontend/remove-let.scm")
