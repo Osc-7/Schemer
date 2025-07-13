@@ -37,20 +37,33 @@
 
           ;; --- 3. Recursively rewrite the tail, inserting fp adjustment instructions ---
           (let ([new-tail
-                 (letrec ([rewrite
-                           (lambda (exp)
-                             (match exp
-                               [(return-point ,label ,inner-tail)
+                  (letrec ([rewrite
+                            (lambda (exp)
+                              (match exp
+                                ;; --- 核心转换逻辑 ---
+                                [(return-point ,label ,inner-tail)
                                 `(begin
-                                   (set! ,frame-pointer-register (+ ,frame-pointer-register ,frame-offset))
-                                   (return-point ,label ,(rewrite inner-tail))
-                                   (set! ,frame-pointer-register (- ,frame-pointer-register ,frame-offset)))]
-                               [(if ,p ,c ,a)
-                                `(if ,p ,(rewrite c) ,(rewrite a))]
-                               [(begin ,exprs ...)
+                                    (set! ,frame-pointer-register (+ ,frame-pointer-register ,frame-offset))
+                                    (return-point ,label ,(rewrite inner-tail))
+                                    (set! ,frame-pointer-register (- ,frame-pointer-register ,frame-offset)))]
+
+                                ;; --- 递归遍历 ---
+                                [(if ,p ,c ,a)
+                                ;; 关键：对谓词 p 也要进行递归！
+                                `(if ,(rewrite p) ,(rewrite c) ,(rewrite a))] 
+                                [(begin ,exprs ...)
                                 `(begin ,@(map rewrite exprs))]
-                               [,else else]))])
-                   (rewrite tail))])
+                                
+                                ;; 新增：处理 binop, relop 和函数调用
+                                [(,op ,rand1 ,rand2) (guard (or (binop? op) (relop? op)))
+                                `(,op ,(rewrite rand1) ,(rewrite rand2))]
+                                
+                                [(,rator ,rands ...) (guard (or (uvar? rator) (label? rator)))
+                                `(,(rewrite rator) ,@(map rewrite rands))]
+                                
+                                ;; Base case: 对于不包含子表达式的节点，原样返回
+                                [,else else]))])
+                    (rewrite tail))])
             
             ;; --- 4. Assemble the final Body ---
             `(locals ,(difference locals-vars all-nfvs)

@@ -23,3 +23,4 @@
 (load "src/frontend/verify-scheme.scm")
 (load "src/frontend/uncover-locals.scm")
 (load "src/frontend/remove-let.scm")
+(load "src/frontend/specify-representation.scm")
