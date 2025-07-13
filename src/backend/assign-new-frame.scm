@@ -1,6 +1,27 @@
 (define assign-new-frame
   (lambda (program)
-
+      (define relop?
+      
+          (lambda (op)
+              (cond
+                  [(eq? op '<) #t]
+                  [(eq? op '<=) #t]
+                  [(eq? op '>) #t]
+                  [(eq? op '>=) #t]
+                  [(eq? op '=) #t]
+                  [(eq? op '!=) #t]
+                  [else #f])))
+      (define binop?
+          (lambda (op)
+              (match op
+                  [+ #t]
+                  [- #t]
+                  [* #t]
+                  [/ #t]
+                  [logand #t]
+                  [logor #t]
+                  [sra #t]
+                  [,x #f])))
     ;; This helper contains the core logic for the pass.
     (define (do-assignment-and-rewrite locals-vars frames-list locate-bindings graph call-live-vars tail)
       ;; --- 1. Calculate current function's frame size n ---
@@ -54,7 +75,6 @@
                                 [(begin ,exprs ...)
                                 `(begin ,@(map rewrite exprs))]
                                 
-                                ;; 新增：处理 binop, relop 和函数调用
                                 [(,op ,rand1 ,rand2) (guard (or (binop? op) (relop? op)))
                                 `(,op ,(rewrite rand1) ,(rewrite rand2))]
                                 

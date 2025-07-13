@@ -809,3 +809,28 @@
                                  (loop (cdr in) out)
                                  (loop (cdr in) (cons item out))))))])
         (loop ls '())))              
+
+(define value-primitives
+  '(+ - * car cdr cons make-vector vector-length vector-ref void))
+
+(define predicate-primitives
+  '(<= < = >= > boolean? eq? fixnum? null? pair? vector?))
+
+(define effect-primitives
+  '(set-car! set-cdr! vector-set!))
+
+
+(define (pred-prim? op)
+  (memq op predicate-primitives))
+
+(define (value-prim? op)
+  (memq op value-primitives))
+
+(define (effect-prim? op)
+  (memq op effect-primitives))
+
+(define (make-nopless-begin expr*)
+  (let ([filtered-expr* (remove '(nop) expr*)])
+        (if (null? filtered-expr*)
+        '(nop)
+        (make-begin filtered-expr*))))

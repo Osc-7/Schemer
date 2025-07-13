@@ -106,7 +106,6 @@
       [(pair? ,v1) `(= (logand ,(Value v1) ,mask-pair) ,tag-pair)]
       [(vector? ,v1) `(= (logand ,(Value v1) ,mask-vector) ,tag-vector)]
 
-      ;; 递归处理复合结构
       [(if ,p1 ,p2 ,p3) `(if ,(Pred p1) ,(Pred p2) ,(Pred p3))]
       [(begin ,effects ... ,pred)
        (let ([new-effects (map Effect effects)]
@@ -142,7 +141,6 @@
       [(,f ,args ...) `(,(Value f) ,@(map Value args))]
       [,else (error 'specify-representation "not a valid effect form" e)]))
 
-  ;;; --- 主程序处理 ---
   (match p
     [(letrec ([,labels (lambda (,formals ...) ,bodies)] ...) ,main-body)
      `(letrec
