@@ -24,6 +24,14 @@
        (append (map normalize-effect effects)
                (list (normalize-value final))))]
 
+    [(make-procedure ,label ,n) e] ; 本身就是 value, 无需转换
+    [(procedure-ref ,p ,n) `(procedure-ref ,(normalize-value p) ,n)] ; 对参数进行 normalize
+    [(procedure-code ,p) `(procedure-code ,(normalize-value p))]
+    [(procedure-set! ,p ,n ,val) ; effect-prim 在 value 上下文中需要返回 void
+     `(begin ,(normalize-effect e) (void))]
+    [(procedure? ,p) ; pred-prim 在 value 上下文中需要转换为 if
+     `(if ,(normalize-pred e) '#t '#f)]
+
     ;; 函数调用
     [(,rator ,rands ...)
      (cond
@@ -55,7 +63,7 @@
     [(let ([,vars ,rhss] ...) ,body)
      `(let ,(map (lambda (v r) `[,v ,(normalize-value r)]) vars rhss)
         ,(normalize-pred body))]
-
+    [(procedure? ,p) `(procedure? ,(normalize-value p))] 
     ;; 其他所有表达式 (变量, value-prim, 函数调用等) 都需要转换为对 #f 的显式比较
     [,else
      (cond
@@ -88,6 +96,13 @@
     [(let ([,vars ,rhss] ...) ,body)
      `(let ,(map (lambda (v r) `[,v ,(normalize-value r)]) vars rhss)
         ,(normalize-effect body))]
+        
+    [(procedure-set! ,p ,n ,val) ; 本身就是 effect, 只需 normalize 参数
+     `(procedure-set! ,(normalize-value p) ,n ,(normalize-value val))]
+    [(make-procedure ,_ ,_) '(nop)] ; 在 effect 上下文中，只产生值无副作用（除了内存分配，这里忽略）
+    [(procedure-ref ,p ,_) (normalize-effect p)] ; 丢弃结果，只保留参数的副作用
+    [(procedure-code ,p) (normalize-effect p)]
+    [(procedure? ,p) (normalize-effect p)]
 
     [(,rator ,rands ...)
      (cond

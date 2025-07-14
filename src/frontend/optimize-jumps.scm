@@ -15,9 +15,8 @@
             (loop (cadr next-target) (cons (cadr next-target) visited))
             ;; 否则，当前就是最终目标
             current-label))))
-  (define (remove-duplicates ls equal-proc)
-    ;; This helper checks if an item is a member of a list using the provided
-    ;; comparison procedure.
+
+  (define (rmv-dup ls equal-proc)
     (define (is-member? item lst)
       (cond
         [(null? lst) #f]
@@ -54,7 +53,7 @@
                (map (lambda (entry)
                       `(,(car entry) ,(resolve-target (cadr entry) initial-jump-map)))
                     initial-jump-map)]
-              [final-jump-map (remove-duplicates resolved-jump-map equal?)])
+              [final-jump-map (rmv-dup resolved-jump-map equal?)])
 
          (define (rewrite-body b)
            (match b

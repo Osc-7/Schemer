@@ -814,7 +814,7 @@
   '(+ - * car cdr cons make-vector vector-length vector-ref void))
 
 (define predicate-primitives
-  '(<= < = >= > boolean? eq? fixnum? null? pair? vector?))
+  '(<= < = >= > boolean? eq? fixnum? null? pair? vector? procedure?))
 
 (define effect-primitives
   '(set-car! set-cdr! vector-set!))
@@ -834,3 +834,15 @@
         (if (null? filtered-expr*)
         '(nop)
         (make-begin filtered-expr*))))
+(define prim? 
+  (lambda (x)
+    (or (pred-prim? x) (value-prim? x) (effect-prim? x))))
+(define (index-of obj lst)
+    (let loop ((lst lst) (index 0))
+        (cond
+            ((null? lst) #f) 
+            ((eq? obj (car lst)) index) 
+            (else (loop (cdr lst) (+ index 1))) 
+        )
+    )
+)

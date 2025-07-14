@@ -29,3 +29,6 @@
 (load "src/frontend/lift-letrec.scm")
 (load "src/frontend/normalize-context.scm")
 (load "src/frontend/optimize-jumps.scm")
+(load "src/frontend/uncover-free.scm")
+(load "src/frontend/introduce-procedure-primitives.scm")
+(load "src/frontend/convert-closures.scm")

@@ -69,6 +69,28 @@
              ;; 索引是常量，编译时计算最终偏移
              `(mref ,val1 ,(+ offset-vector-data val2))
              `(mref ,val1 (+ ,offset-vector-data ,val2))))]
+      [(make-procedure ,label ,n)
+            (let ([proc-size (* (+ n 1) 8)]) ; 1 个字用于存代码指针, n 个字用于存自由变量
+              (let ([proc-ptr (unique-name 'proc)])
+                `(let ([,proc-ptr (alloc ,proc-size)])
+                    (begin
+                      (mset! ,proc-ptr ,disp-procedure-code ,label)
+                      ;; 返回带标签的指针
+                      (logor ,proc-ptr ,tag-procedure)))))]
+      
+      ;; 实现 (procedure-ref proc n)
+      [(procedure-ref ,proc ,n)
+      (let ([offset (+ disp-procedure-data (* n 8))])
+        ;; 先用 logand 提取标签, 再用减法实现解标签
+        (let ([p-val (Value proc)])
+          `(mref (- ,p-val (logand ,p-val ,mask-procedure)) ,offset)))]
+
+      ;; 实现 (procedure-code proc)
+      [(procedure-code ,proc)
+      ;; 使用减法实现解标签
+      (let ([p-val (Value proc)])
+        `(mref (- ,p-val (logand ,p-val ,mask-procedure)) ,disp-procedure-code))] 
+
 
       [(if ,p ,v1 ,v2) `(if ,(Pred p) ,(Value v1) ,(Value v2))]
       [(begin ,effects ... ,val)
@@ -78,6 +100,7 @@
       [(let ([,uvars ,values] ...) ,body)
        `(let ,(map (lambda (u v) `[,u ,(Value v)]) uvars values)
           ,(Value body))]
+  
       [(,f ,args ...) `(,(Value f) ,@(map Value args))]
 
       ;; 基本情况
@@ -105,6 +128,8 @@
       [(boolean? ,v1) `(= (logand ,(Value v1) ,mask-boolean) ,tag-boolean)]
       [(pair? ,v1) `(= (logand ,(Value v1) ,mask-pair) ,tag-pair)]
       [(vector? ,v1) `(= (logand ,(Value v1) ,mask-vector) ,tag-vector)]
+      [(procedure? ,v)
+       `(= (logand ,(Value v) ,mask-procedure) ,tag-procedure)]  
 
       [(if ,p1 ,p2 ,p3) `(if ,(Pred p1) ,(Pred p2) ,(Pred p3))]
       [(begin ,effects ... ,pred)
@@ -114,7 +139,8 @@
       [(let ([,uvars ,values] ...) ,body)
        `(let ,(map (lambda (u v) `[,u ,(Value v)]) uvars values)
           ,(Pred body))]
-      [else (error 'specify-representation "not a valid predicate form" p)]))
+        
+      [,else (error 'specify-representation "not a valid predicate form" p)]))
 
   ;;; 处理产生副作用的表达式 <Effect>
   (define (Effect e)
@@ -130,7 +156,15 @@
              ;; 索引是常量，编译时计算最终偏移
              `(mset! ,val1 ,(+ offset-vector-data val2) ,val3)
              `(mset! ,val1 (+ ,offset-vector-data ,val2) ,val3)))]
-             
+
+      [(procedure-set! ,proc ,n ,expr)
+      (let ([offset (+ disp-procedure-data (* n 8))])
+        ;; 使用减法实现解标签
+        (let ([p-val (Value proc)])
+          `(mset! (- ,p-val (logand ,p-val ,mask-procedure))
+                  ,offset
+                  ,(Value expr))))]      
+                  
       ;; 递归处理复合结构
       [(if ,p ,e1 ,e2) `(if ,(Pred p) ,(Effect e1) ,(Effect e2))]
       [(begin ,effects ... ,effect)
