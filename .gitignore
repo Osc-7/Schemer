@@ -5,7 +5,7 @@ output
 .DS_Store
 
 a*/
-
+a??/
 src/backend/driver.scm
 run
 temp.scm

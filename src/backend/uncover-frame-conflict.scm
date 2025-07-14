@@ -1,177 +1,238 @@
 (define uncover-frame-conflict
-  (lambda (program)
+    (lambda (program)
+  ; Initilize a conflict graph with a given list of uvars
+  (define init_conflict_graph
+      (lambda (uvars)
+          (match uvars
+              [() '()]
+              [(,uvar . ,[rest])
+                  (cons (list uvar) rest)])))
 
-    (define (process-body body)
-      (match body
-        [(locals ,vars-list (new-frames ,frames-list ,tail))
-        (let-values ([(graph call-lives) (build-conflict-graph vars-list tail)])
-          (let ([spills (filter uvar? call-lives)])
-            `(locals ,vars-list
-                (new-frames ,frames-list
-                  (spills ,spills
-                    (frame-conflict ,graph
-                      (call-live ,call-lives ,tail)))))))]
-        [,else (error 'uncover-frame-conflict "body structure invalid" body)]))
+  ; Check if an element can in a live set
+  (define valid_in_live_set?
+      (lambda (triv what)
+          (if (or (uvar? triv) (what triv))
+              #t
+              #f)))
 
-    (define (build-conflict-graph vars tail)
-      (let ([conflict-graph (map (lambda (v) (list v)) vars)])
+  ; Initialize a live set with (Triv Loc*)
+  (define init_live_set
+      (lambda (triv* what)
+          (match triv*
+              [() '()]
+              [(,triv . ,[rest])
+                  (if (valid_in_live_set? triv what)
+                      (union `(,triv) rest)
+                      rest)])))
 
-        (define (live-in-triv triv)
-          (if (or (uvar? triv) (frame-var? triv) (register? triv))
-              (list triv)
-              '()))
-              
-        (define (add-conflict! var1 var2)
-            (let loop ([g conflict-graph])
-              (cond
-                [(null? g) '()]
-                [(eq? (caar g) var1)
-                 (let ([conflicts (car g)])
-                   (unless (member var2 (cdr conflicts))
-                     (set-cdr! conflicts (cons var2 (cdr conflicts)))))]
-                [else (loop (cdr g))])))
-        
-        (define (add-conflicts! var live-set)
-            (when (uvar? var)
-                (for-each
-                    (lambda (live-item)
-                        (when (not (eq? var live-item))
-                            (cond
-                                [(uvar? live-item)
-                                 (add-conflict! var live-item)
-                                 (add-conflict! live-item var)]
-                                [(or (frame-var? live-item) (register? live-item))
-                                 (add-conflict! var live-item)]
-                                )))
-                    live-set)))
+  ; Union two conflict graph
+  (define union_conflict_graph
+      (lambda (conf_graph1 conf_graph2)
+          (if (null? conf_graph1)
+              '()
+              (let 
+                  ([var (car (car conf_graph1))]
+                  [conf_list1 (cdr (car conf_graph1))]
+                  [conf_list2 (cdr (car conf_graph2))])
+                  (cons 
+                      (cons var (union conf_list1 conf_list2))
+                      (union_conflict_graph (cdr conf_graph1) (cdr conf_graph2)))))))
 
-        (define (walk-pred pred live-true live-false cl-true cl-false)
-          (match pred
-            [(true) (values live-true cl-true)]
-            [(false) (values live-false cl-false)]
+  ; Append several elements to a live set
+  (define append_live_set
+      (lambda (live_set triv_set what)
+          (match triv_set
+              [() live_set]
+              [(,triv . ,[new_live_set])
+                  (if (valid_in_live_set? triv what)
+                      (union `(,triv) new_live_set)
+                      new_live_set)])))
 
-            [(if ,p1 ,p2 ,p3)
-             (let-values ([(live-p2 cl-p2) (walk-pred p2 live-true live-false cl-true cl-false)])
-               (let-values ([(live-p3 cl-p3) (walk-pred p3 live-true live-false cl-true cl-false)])
-                 (let-values ([(live-p1 cl-p1) (walk-pred p1 live-p2 live-p3 cl-p2 cl-p3)])
-                   (values live-p1 cl-p1))))]
+  ; Append var's conflict list in conflict graph with a live set
+  (define append_conflict_list
+      (lambda (live_set conf_graph var)
+          (match conf_graph
+              [() '()]
+              [((,var1 . ,conf_list) . ,sub_graph)
+                  (if (eq? var var1)
+                      (cons (cons var (union conf_list live_set))
+                          sub_graph)
+                      (cons (car conf_graph)
+                          (append_conflict_list live_set sub_graph var)))])))
+                      
+  ; Append a conflict graph with a list of items that conflicts with this var
+  ; We need to make a mutual confliction
+  (define append_conflict_graph
+      (lambda (live_set conf_graph var)
+          (let 
+              ([conf_graph 
+                  (if (uvar? var) 
+                      (append_conflict_list live_set conf_graph var)
+                      conf_graph)])
+              (letrec 
+                  ([another_dir
+                      (lambda (live_set conf_graph var)
+                          (match live_set
+                              [() conf_graph]
+                              [(,triv . ,[new_conf_graph])
+                                  (if (uvar? triv)
+                                      (append_conflict_list `(,var) new_conf_graph triv)
+                                      new_conf_graph)]))])
+                  (another_dir live_set conf_graph var)))))
 
-            [(begin ,effects ... ,last-pred)
-              (let-values ([(live-after-effects cl-after-effects) 
-                            (walk-pred last-pred live-true live-false cl-true cl-false)])
-                (let loop ([fx effects] [live-in live-after-effects] [cl-in cl-after-effects])
-                  (if (null? fx)
-                      (values live-in cl-in)
-                      (let-values ([(live-out cl-out) (loop (cdr fx) live-in cl-in)])
-                        (walk-effect (car fx) live-out cl-out)))))]
-            [(,relop ,triv1 ,triv2) 
-             (values (union (live-in-triv triv1) (live-in-triv triv2) live-true live-false)
-                     (union cl-true cl-false))]
-            [else (error 'uncover-frame-conflict "Invalid Predicate" pred)]))
+  ; Ignore assignment if the variable is not in the live set
+  ; This is an optimization
+  (define ignore_assignment?
+      (lambda (var live_set what)
+          (cond 
+              [(and (valid_in_live_set? var what) (null? (intersection `(,var) live_set))) #t]
+              [else #f])))
 
-        (define (walk-effect effect live-set call-lives)
-          (match effect
-            [(nop) (values live-set call-lives)]
-            [(return-point ,label ,tail)
-             (let-values ([(live-before-tail cl-tail) (walk-tail tail)])
-               (for-each
-                 (lambda (call-var)
-                   (add-conflicts! call-var live-set))
-                 live-before-tail)
-               (let ([call-live-vars (filter (lambda (v) (or (uvar? v) (frame-var? v))) live-set)])
-                 (values (union live-set live-before-tail)
-                         (union call-lives call-live-vars cl-tail))))]
+  ; Maintain the live set and conflict graph in an assignment
+  (define handle_assignment
+      (lambda (live_set conf_graph assignment var set_to_add what)
+          (if (ignore_assignment? var live_set what)
+              (values live_set conf_graph '(nop))
+              (let ([live_set (difference live_set `(,var))])
+                  (values 
+                      (append_live_set live_set set_to_add what)
+                      (append_conflict_graph live_set conf_graph var)
+                      assignment)))))
 
-            [(set! ,var (alloc ,size))
-             (let* ([live-after (difference live-set (list var))]
-                    [live-rhs (live-in-triv size)]
-                    [new-live (union live-after live-rhs)])
-               (add-conflicts! var live-after)
-               (values new-live call-lives))]
+  ; Unlike the previous version, we take an optimization here
+  ; For those assignment that LHS is not in the live set, we can discard the assignment
+  ; So it may change the structure
+  (define uncover_conflict
+      ; what is a function that checks if a non-variable can be in a live set
+      ; For instance, if what = register?, then this uncover-conflict is used to uncover register conflicts.
+      (lambda (what uvar* tail)
+          ; we need to maintain a call live set
+          (define call_live_set '())
+          (define Tail
+              (lambda (live_set conf_graph tail)
+                  (match tail
+                      [(begin ,effect* ... ,sub_tail)
+                          (let-values
+                              ([(live_set sub_graph new_tail) (Tail live_set conf_graph sub_tail)])
+                              (let-values
+                                  ([(live_set sub_graph effects) ((process-Effects live_set sub_graph) effect*)])
+                                  (values
+                                      live_set
+                                      sub_graph
+                                      (make-begin (append effects `(,new_tail))))))]
+                      [(if ,pred ,tail1 ,tail2)
+                          (let-values
+                              ([(live_set1 sub_graph1 tail1) (Tail live_set conf_graph tail1)]
+                               [(live_set2 sub_graph2 tail2) (Tail live_set conf_graph tail2)])
+                              (let-values
+                                  ([(live_set sub_graph pred) (Pred live_set1 live_set2 sub_graph1 sub_graph2 pred)])
+                                  (values
+                                      live_set
+                                      sub_graph
+                                      `(if ,pred ,tail1 ,tail2))))]
+                      [(,triv ,Loc* ...)
+                          (set! call_live_set (union call_live_set live_set))
+                          (let 
+                              ([live_set (append_live_set live_set (cons triv Loc*) what)])
+                              (values 
+                                  live_set
+                                  conf_graph
+                                  tail))])))
+          (define Pred
+              (lambda (live_set1 live_set2 conf_graph1 conf_graph2 pred)
+                  (match pred
+                      [(begin ,effect* ... ,sub_pred)
+                          (let-values 
+                              ([(live_set sub_graph sub_pred) (Pred live_set1 live_set2 conf_graph1 conf_graph2 sub_pred)])
+                              (let-values
+                                  ([(live_set sub_graph effects) ((process-Effects live_set sub_graph) effect*)])
+                                  (values
+                                      live_set
+                                      sub_graph
+                                      (make-begin (append effects `(,sub_pred))))))]
+                      [(if ,sub_pred ,pred1 ,pred2)
+                          (let-values 
+                              ([(new_live_set1 new_conf_graph1 pred1) (Pred live_set1 live_set2 conf_graph1 conf_graph2 pred1)]
+                              [(new_live_set2 new_conf_graph2 pred2) (Pred live_set1 live_set2 conf_graph1 conf_graph2 pred2)])
+                              (let-values
+                                  ([(live_set sub_graph sub_pred) 
+                                      (Pred new_live_set1 new_live_set2 new_conf_graph1 new_conf_graph2 sub_pred)])
+                                  (values
+                                      live_set
+                                      sub_graph
+                                      `(if ,sub_pred ,pred1 ,pred2))))]
+                      [(,relop ,triv1 ,triv2)
+                          (values 
+                              (append_live_set (union live_set1 live_set2) (list triv1 triv2) what)
+                              (union_conflict_graph conf_graph1 conf_graph2)
+                              pred)]
+                      [(true) (values live_set1 conf_graph1 pred)]
+                      [(false) (values live_set2 conf_graph2 pred)])))
+          (define Effect
+              (lambda (live_set conf_graph effect)
+                  (match effect
+                      [(begin ,effect* ...)
+                          (let-values 
+                              ([(live_set sub_graph new_effects) ((process-Effects live_set conf_graph) effect*)])
+                              (values 
+                                  live_set 
+                                  sub_graph 
+                                  (make-begin new_effects)))]
+                      [(if ,pred ,effect1 ,effect2)
+                          (let-values
+                              ([(live_set1 sub_graph1 effect1) (Effect live_set conf_graph effect1)]
+                              [(live_set2 sub_graph2 effect2) (Effect live_set conf_graph effect2)])
+                              (let-values
+                                  ([(live_set sub_graph pred) 
+                                      (Pred live_set1 live_set2 sub_graph1 sub_graph2 pred)])
+                                  (values
+                                      live_set
+                                      sub_graph
+                                      `(if ,pred ,effect1 ,effect2))))]
+                      [(set! ,var (mref ,base ,offset))
+                          (handle_assignment live_set conf_graph effect var `(,base ,offset) what)]
+                      [(mset! ,base ,offset ,triv)
+                          (values
+                              (append_live_set live_set (list base offset triv) what)
+                              conf_graph
+                              effect)]
+                      [(set! ,var (,binop ,triv1 ,triv2))
+                          (handle_assignment live_set conf_graph effect var `(,triv1 ,triv2) what)]
+                      [(set! ,var ,triv)
+                          (handle_assignment live_set conf_graph effect var `(,triv) what)]
+                      [(return-point ,label ,tail)
+                          (let-values
+                              ([(live_set conf_graph tail) (Tail live_set conf_graph tail)])
+                              (values 
+                                  live_set 
+                                  conf_graph 
+                                  `(return-point ,label ,tail)))]
+                      [,x (values live_set conf_graph effect)])))
+          (define process-Effects
+              (lambda (live_set conf_graph)
+                  (lambda (effects)
+                      (match effects
+                          [() (values live_set conf_graph '())]
+                          [(,effect . ,[(process-Effects live_set conf_graph) -> live_set conf_graph last_effects])
+                              (let-values 
+                                  ([(live_set sub_graph effect) (Effect live_set conf_graph effect)])
+                                  (values
+                                      live_set
+                                      sub_graph
+                                      (cons effect last_effects)))]))))
+          (let-values 
+              ([(live_set conf_graph tail) (Tail '() (init_conflict_graph uvar*) tail)])
+              (values live_set call_live_set conf_graph tail))))
 
-            ;; A8 修改: 处理 (set! var (mref base offset))
-            [(set! ,var (mref ,base ,offset))
-             (let* ([live-after (difference live-set (list var))]
-                    [live-rhs (union (live-in-triv base) (live-in-triv offset))]
-                    [new-live (union live-after live-rhs)])
-               (add-conflicts! var live-after)
-               (values new-live call-lives))]
-
-            ;; A8 修改: 处理 (mset! base offset val) 作为一个 Effect
-            [(mset! ,base ,offset ,val)
-             (let* ([live-rhs (union (live-in-triv base) (live-in-triv offset) (live-in-triv val))]
-                   [new-live (union live-set live-rhs)])
-               ;; mset! 不定义新变量，所以只更新活性集，不添加冲突
-               (values new-live call-lives))]
-               
-            [(set! ,var (,binop ,triv1 ,triv2))
-             (let* ([live-after (difference live-set (list var))]
-                    [live-rhs (union (live-in-triv triv1) (live-in-triv triv2))]
-                    [new-live (union live-after live-rhs)])
-               (add-conflicts! var live-after)
-               (for-each (lambda (rhs-var) (add-conflicts! rhs-var live-after)) live-rhs)
-               (values new-live call-lives))]
-            [(set! ,var ,triv)
-             (let* ([live-after-inst (difference live-set (list var))]
-                    [live-rhs (live-in-triv triv)]
-                    [live-at-def-point (union live-after-inst live-rhs)])
-               (if (and (uvar? var) (equal? triv var))
-                   (add-conflicts! var live-after-inst)
-                   (if (and (uvar? var) (uvar? triv) (equal? live-rhs (list triv)))
-                       (add-conflicts! var (difference live-at-def-point (list triv)))
-                       (add-conflicts! var live-at-def-point)))
-               (for-each (lambda (rhs-var) (add-conflicts! rhs-var live-after-inst)) live-rhs)
-               (values live-at-def-point call-lives))]
-            [(if ,pred ,eff1 ,eff2)
-             (let-values ([(live1 cl1) (walk-effect eff1 live-set call-lives)])
-               (let-values ([(live2 cl2) (walk-effect eff2 live-set call-lives)])
-                 (let-values ([(live-p cl-p) (walk-pred pred live1 live2 cl1 cl2)])
-                   (values live-p cl-p))))]
-
-            [(begin ,effects ... ,last-effect)
-            (let-values ([(live-after-effects cl-after-effects) (walk-effect last-effect live-set call-lives)])
-              (let loop ([fx effects] [live-in live-after-effects] [cl-in cl-after-effects])
-                (if (null? fx)
-                    (values live-in cl-in)
-                    (let-values ([(live-out cl-out) (loop (cdr fx) live-in cl-in)])
-                      (walk-effect (car fx) live-out cl-out)))))]
-            [else (error 'uncover-frame-conflict "Invalid Effect" effect)]))
-
-        (define (walk-tail t)
-          (match t
-             [(if ,pred ,then-tail ,else-tail)
-              (let-values ([(live-then cl-then) (walk-tail then-tail)])
-                (let-values ([(live-else cl-else) (walk-tail else-tail)])
-                  (let-values ([(live-p cl-p) (walk-pred pred live-then live-else cl-then cl-else)])
-                    (values live-p cl-p))))]
-
-              [(begin ,effects ... ,last-tail)
-                (let-values ([(live-after-effects cl-after-effects) (walk-tail last-tail)])
-                  (let loop ([fx effects] [live-in live-after-effects] [cl-in cl-after-effects])
-                    (if (null? fx)
-                        (values live-in cl-in)
-                        (let-values ([(live-out cl-out) (loop (cdr fx) live-in cl-in)])
-                          (walk-effect (car fx) live-out cl-out)))))]
-                          
-             [(alloc ,size)
-              (values (live-in-triv size) '())]
-             [(mref ,base ,offset)
-              (values (union (live-in-triv base) (live-in-triv offset)) '())]
-
-             [(,triv . ,live-locs)
-              (values (union (live-in-triv triv) live-locs) '())]
-             [else (error 'uncover-frame-conflict "Invalid Tail" t)]))
-        
-        (let-values ([(live-set call-lives) (walk-tail tail)])
-          (values conflict-graph (remove-duplicates call-lives)))))
-
-    (match program
-      [(letrec ,bindings ,main-body)
-       (let ([new-main-body (process-body main-body)]
-             [new-bindings (map (lambda (binding)
-                                  (match binding
-                                    [(,label (lambda () ,body))
-                                     `(,label (lambda () ,(process-body body)))]))
-                                bindings)])
-         `(letrec ,new-bindings ,new-main-body))]
-      [,else (error 'uncover-frame-conflict "program must be a letrec" else)])))
+        (match program
+            [(letrec ([,label* (lambda () ,[body*])] ...) ,[body])
+                `(letrec ([,label* (lambda () ,body*)] ...) ,body)]
+            [(locals ,uvar* 
+                (new-frames ,new_frame* ,tail))
+                (let-values
+                    ([(live_set call_live_set conf_frame_graph tail) (uncover_conflict frame-var? uvar* tail)])
+                    `(locals ,(difference uvar* (filter uvar? call_live_set))
+                        (new-frames ,new_frame*
+                            (spills ,(filter uvar? call_live_set)
+                                (frame-conflict ,(sort (lambda (a b) (< (length a) (length b))) conf_frame_graph)
+                                    (call-live ,call_live_set ,tail))))))])))
