@@ -40,3 +40,4 @@
 (load "src/frontend/uncover-assigned.scm")
 (load "src/frontend/purify-letrec.scm")
 (load "src/frontend/convert-assignments.scm")
+(load "src/frontend/parse-scheme.scm")
