@@ -32,3 +32,7 @@
 (load "src/frontend/uncover-free.scm")
 (load "src/frontend/introduce-procedure-primitives.scm")
 (load "src/frontend/convert-closures.scm")
+(load "src/frontend/remove-anonymous-lambda.scm")
+(load "src/frontend/optimize-known-call.scm")
+(load "src/frontend/optimize-direct-call.scm")
+(load "src/frontend/sanitize-binding-forms.scm")
