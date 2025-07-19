@@ -95,6 +95,8 @@
       (handle_datum pair_car)
       (handle_datum pair_cdr)
       `(quote ,datum)]
+    [,s (guard (symbol? s))
+        `(quote ,s)]
     [,atomic_datum (handle_constant atomic_datum)]))
 
 ;; Handle `quote` expressions.
