@@ -36,3 +36,7 @@
 (load "src/frontend/optimize-known-call.scm")
 (load "src/frontend/optimize-direct-call.scm")
 (load "src/frontend/sanitize-binding-forms.scm")
+(load "src/frontend/convert-complex-datum.scm")
+(load "src/frontend/uncover-assigned.scm")
+(load "src/frontend/purify-letrec.scm")
+(load "src/frontend/convert-assignments.scm")
